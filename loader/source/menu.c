@@ -730,14 +730,14 @@ static bool UpdateGameSelectMenu(MenuCtx *ctx)
 		// TODO: Only if menuMode or scrollX has changed?
 
 		// Print the color codes.
-		PrintFormat(DEFAULT_SIZE, DiscFormatColors[0], MENU_POS_X, MENU_POS_Y + 20*3, "Colors  : 1:1");
-		PrintFormat(DEFAULT_SIZE, DiscFormatColors[1], MENU_POS_X+(14*10), MENU_POS_Y + 20*3, "Shrunk");
-		PrintFormat(DEFAULT_SIZE, DiscFormatColors[2], MENU_POS_X+(21*10), MENU_POS_Y + 20*3, "FST");
-		PrintFormat(DEFAULT_SIZE, DiscFormatColors[3], MENU_POS_X+(25*10), MENU_POS_Y + 20*3, "CISO");
-		PrintFormat(DEFAULT_SIZE, DiscFormatColors[4], MENU_POS_X+(30*10), MENU_POS_Y + 20*3, "Multi");
+		PrintFormat(DEFAULT_SIZE, DiscFormatColors[0], MENU_POS_X, MENU_POS_Y + 20*4, "Colors  : 1:1");
+		PrintFormat(DEFAULT_SIZE, DiscFormatColors[1], MENU_POS_X+(14*10), MENU_POS_Y + 20*4, "Shrunk");
+		PrintFormat(DEFAULT_SIZE, DiscFormatColors[2], MENU_POS_X+(21*10), MENU_POS_Y + 20*4, "FST");
+		PrintFormat(DEFAULT_SIZE, DiscFormatColors[3], MENU_POS_X+(25*10), MENU_POS_Y + 20*4, "CISO");
+		PrintFormat(DEFAULT_SIZE, DiscFormatColors[4], MENU_POS_X+(30*10), MENU_POS_Y + 20*4, "Multi");
 
 		// Starting position.
-		int gamelist_y = MENU_POS_Y + 20*5 + 10;
+		int gamelist_y = MENU_POS_Y + 20*6 + 10;
 
 		const gameinfo *gi = &ctx->games.gi[ctx->games.scrollX];
 		int gamesToPrint = ctx->games.gamecount - ctx->games.scrollX;
@@ -798,7 +798,7 @@ static bool UpdateGameSelectMenu(MenuCtx *ctx)
 				const int x = (640 - (len*10)) / 2;
 
 				const u32 color = DiscFormatColors[gi->Flags & GIFLAG_FORMAT_MASK];
-				PrintFormat(DEFAULT_SIZE, color, x, MENU_POS_Y + 20*4+5, "%s", gi->Path);
+				PrintFormat(DEFAULT_SIZE, color, x, MENU_POS_Y + 20*5+5, "%s", gi->Path);
 			}
 		}
 		else
@@ -1264,12 +1264,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 			else switch (ctx->settings.posX)
 			{
 				case NIN_SETTINGS_MAX_PADS:
-					// Maximum native controllers.
-					// Not available on Wii U.
-					ncfg->MaxPads++;
-					if (ncfg->MaxPads > NIN_CFG_MAXPAD) {
-						ncfg->MaxPads = 0;
-					}
+					// don't allow Native Control settings to be changed.
 					break;
 
 				case NIN_SETTINGS_LANGUAGE:
@@ -1327,7 +1322,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 					break;
 
 				case NIN_SETTINGS_NATIVE_SI:
-					ncfg->Config ^= (NIN_CFG_NATIVE_SI);
+					// don't allow Native Control settings to be changed.
 					break;
 
 				default:
@@ -1408,9 +1403,8 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 		}
 
 		// Maximum number of emulated controllers.
-		// Not available on Wii U.
-		// TODO: Disable on RVL-101?
-		PrintFormat(MENU_SIZE, (!IsWiiU() ? BLACK : DARK_GRAY), MENU_POS_X+50, SettingY(ListLoopIndex),
+		// don't allow Native Control settings to be changed.
+		PrintFormat(MENU_SIZE, DARK_GRAY, MENU_POS_X+50, SettingY(ListLoopIndex),
 			    "%-18s:%d", OptionStrings[ListLoopIndex], (ncfg->MaxPads));
 		ListLoopIndex++;
 
@@ -1486,8 +1480,8 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 		ListLoopIndex+=2;
 
 		// Native controllers. (Required for GBA link; disables Bluetooth and USB HID.)
-		// TODO: Gray out on RVL-101?
-		PrintFormat(MENU_SIZE, (IsWiiU() ? DARK_GRAY : BLACK), MENU_POS_X + 50, SettingY(ListLoopIndex),
+		// don't allow Native Control settings to be changed.
+		PrintFormat(MENU_SIZE, DARK_GRAY, MENU_POS_X + 50, SettingY(ListLoopIndex),
 			    "%-18s:%-4s", OptionStrings[ListLoopIndex],
 			    (ncfg->Config & (NIN_CFG_NATIVE_SI)) ? "On " : "Off");
 		ListLoopIndex++;
@@ -1540,11 +1534,16 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 		// Draw the cursor.
 		if (ctx->settings.settingPart == 0) {
 			u32 cursor_color = BLACK;
-			if ((!IsWiiU() && ctx->settings.posX == NIN_CFG_BIT_USB) ||
-			     (IsWiiU() && ctx->settings.posX == NIN_CFG_NATIVE_SI))
+			if (!IsWiiU() && ctx->settings.posX == NIN_CFG_BIT_USB)
 			{
 				// Setting is not usable on this platform.
 				// Gray out the cursor, too.
+				cursor_color = DARK_GRAY;
+			}
+			if ((ctx->settings.posX == NIN_SETTINGS_MAX_PADS ||
+			     ctx->settings.posX == NIN_SETTINGS_NATIVE_SI))
+			{
+				// don't allow Native Control settings to be changed.
 				cursor_color = DARK_GRAY;
 			}
 			PrintFormat(MENU_SIZE, cursor_color, MENU_POS_X + 30, SettingY(ctx->settings.posX), ARROW_RIGHT);
@@ -1886,6 +1885,22 @@ void PrintInfo(void)
 	PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*1, "Built   : " __DATE__ " " __TIME__);
 	PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*2, "Firmware: %u.%u.%u",
 		    *(vu16*)0x80003140, *(vu8*)0x80003142, *(vu8*)0x80003143);
+	if (IsWiiU())
+	{
+		PrintFormat(DEFAULT_SIZE, RED, MENU_POS_X, MENU_POS_Y + 20*3, "Wii VC does not support Native Control.");
+	}
+	else if (ncfg->Magicbytes != 0x01070CF6)
+	{
+		PrintFormat(DEFAULT_SIZE, PURPLE, MENU_POS_X, MENU_POS_Y + 20*3, "Loading settings...");
+	}
+	else if (ncfg->Config & (NIN_CFG_NATIVE_SI))
+	{
+		PrintFormat(DEFAULT_SIZE, PURPLE, MENU_POS_X, MENU_POS_Y + 20*3, "Native Control is ON!");
+	}
+	else
+	{
+		PrintFormat(DEFAULT_SIZE, RED, MENU_POS_X, MENU_POS_Y + 20*3, "Contact @jmlee337, Native Control disabled...somehow.");
+	}
 }
 
 /**

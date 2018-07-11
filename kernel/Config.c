@@ -38,6 +38,10 @@ void ConfigInit( void )
 		ConfigSyncBeforeRead();
 	}
 
+	// override anything saved on disc, enable Native Control.
+	ncfg->MaxPads = NIN_CFG_MAXPAD;
+	ncfg->Config |= NIN_CFG_NATIVE_SI;
+
 	if( IsWiiU() )
 	{
 		//ncfg->Config |= NIN_CFG_HID;

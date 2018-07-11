@@ -1,38 +1,9 @@
-### Nintendont
-A Wii Homebrew Project to play GC Games on Wii and vWii on Wii U
+### Nintendont for Melee tournaments
+Use it for Melee. Idiot-proof your setups and put nervous top players at ease.
 
-### Features:
-* Works on Wii and Wii U (in vWii mode)
-* Full-speed loading from a USB device or an SD card.
-* Loads 1:1 and shrunken .GCM/.ISO disc images.
-* Loads games as extracted files (FST format)
-* Loads CISO-format disc images. (uLoader CISO format)
-* Memory card emulation
-* Play audio via disc audio streaming
-* Bluetooth controller support (Classic Controller (Pro), Wii U Pro Controller)
-* HID controller support via USB
-* Custom button layout when using HID controllers
-* Cheat code support
-* Changeable configuration of various settings
-* Reset/Power off via button combo (R + Z + Start) (R + Z + B + D-Pad Down)
-* Advanced video mode patching, force progressive and force 16:9 widescreen
-* Auto boot from loader
-* Disc switching
-* Use the official Nintendo GameCube controller adapter
-
-### Features: (Wii only)
-* Play retail discs
-* Play backups from writable DVD media (Old Wii only)
-* Use real memory cards
-* GBA-Link cable
-* WiiRd
-* Allow use of the Nintendo GameCube Microphone
-
-### What Nintendont doesn't do yet:
-* BBA/Modem support
-
-### What Nintendont will never support:
-* Game Boy Player
+See the [README](https://github.com/FIX94/Nintendont/blob/master/README.md) for standard Nintendont. It's just like that except:
+* Native Control is on by default. And you can't turn it off.
+* A friendly message assures you that Native Control is on as the game boots
 
 ### Quick Installation:
 1. Get the [loader.dol](loader/loader.dol?raw=true), rename it to boot.dol and put it in /apps/Nintendont/ along with the files [meta.xml](nintendont/meta.xml?raw=true) and [icon.png](nintendont/icon.png?raw=true).
@@ -41,8 +12,3 @@ A Wii Homebrew Project to play GC Games on Wii and vWii on Wii U
    * For extracted FST, the FST must be located in a subdirectory, e.g. /games/FSTgame/sys/boot.bin .
 3. Connect your storage device to your Wii or Wii U and start The Homebrew Channel.
 4. Select Nintendont.
-
-### Notes
-* The Wii and Wii U SD card slot is known to be slow. If you're using an SD card and are having performance issues, consider either using a USB SD reader or a USB hard drive.
-* USB flash drives are known to be problematic.
-* Nintendont runs best with storage devices formatted with 32 KB clusters. (Use either FAT32 or exFAT.)

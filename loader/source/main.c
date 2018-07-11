@@ -797,9 +797,11 @@ int main(int argc, char **argv)
 			ncfg->Magicbytes = 0x01070CF6;
 			ncfg->Version = NIN_CFG_VERSION;
 			ncfg->Language = NIN_LAN_AUTO;
-			ncfg->MaxPads = NIN_CFG_MAXPAD;
 			ncfg->MemCardBlocks = 0x2;//251 blocks
 		}
+		// override anything saved on disc, enable Native Control
+		ncfg->MaxPads = NIN_CFG_MAXPAD;
+		ncfg->Config |= NIN_CFG_NATIVE_SI;
 
 		// Prevent autobooting if B is pressed
 		int i = 0;
