@@ -44,6 +44,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 // Dark gray for grayed-out menu items.
 #define DARK_GRAY 0x666666FF
+#define LIGHT_GRAY 0x999999FF
 
 // Device state.
 typedef enum {
@@ -1115,7 +1116,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 
 		// Check for wraparound.
 		if ((ctx->settings.settingPart == 0 && ctx->settings.posX >= NIN_SETTINGS_LAST) ||
-		    (ctx->settings.settingPart == 1 && ctx->settings.posX >= 6))
+		    (ctx->settings.settingPart == 1 && ctx->settings.posX >= 7))
 		{
 			ctx->settings.posX = 0;
 			ctx->settings.settingPart ^= 1;
@@ -1142,7 +1143,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 			if (ctx->settings.settingPart == 0) {
 				ctx->settings.posX = NIN_SETTINGS_LAST - 1;
 			} else {
-				ctx->settings.posX = 5;
+				ctx->settings.posX = 6;
 			}
 		}
 
@@ -1263,10 +1264,6 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 			}
 			else switch (ctx->settings.posX)
 			{
-				case NIN_SETTINGS_MAX_PADS:
-					// don't allow Native Control settings to be changed.
-					break;
-
 				case NIN_SETTINGS_LANGUAGE:
 					ncfg->Language++;
 					if (ncfg->Language > NIN_LAN_DUTCH) {
@@ -1321,10 +1318,6 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 					ncfg->Config ^= (NIN_CFG_MC_MULTI);
 					break;
 
-				case NIN_SETTINGS_NATIVE_SI:
-					// don't allow Native Control settings to be changed.
-					break;
-
 				default:
 					break;
 			}
@@ -1369,6 +1362,16 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 					ctx->redraw = true;
 					break;
 
+				case 6:
+					ctx->saveSettings = true;
+					ncfg->MeleeCodes++;
+					if (ncfg->MeleeCodes > 1)
+					{
+						ncfg->MeleeCodes = 0;
+					}
+					ctx->redraw = true;
+					break;
+
 				default:
 					break;
 			}
@@ -1378,10 +1381,10 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 	if (ctx->redraw)
 	{
 		// Redraw the settings menu.
-		u32 ListLoopIndex = 0;
 
 		// Standard boolean settings.
-		for (ListLoopIndex = 0; ListLoopIndex < NIN_CFG_BIT_LAST; ListLoopIndex++)
+		u32 ListLoopIndex = 0;
+		for (; ListLoopIndex < NIN_CFG_BIT_LAST; ListLoopIndex++)
 		{
 			if (ListLoopIndex == NIN_CFG_BIT_USB) {
 				// USB option is replaced with Wii U widescreen.
@@ -1389,13 +1392,16 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 					    "%-18s:%s", OptionStrings[ListLoopIndex], (ncfg->Config & (NIN_CFG_WIIU_WIDE)) ? "On " : "Off");
 			} else {
 				u32 item_color = BLACK;
-				if (IsWiiU() &&
-				    (ListLoopIndex == NIN_CFG_BIT_DEBUGGER ||
-				     ListLoopIndex == NIN_CFG_BIT_DEBUGWAIT ||
-				     ListLoopIndex == NIN_CFG_BIT_LED))
+				if (ListLoopIndex == NIN_CFG_BIT_CHEATS ||
+					ListLoopIndex == NIN_CFG_BIT_DEBUGGER ||
+					ListLoopIndex == NIN_CFG_BIT_DEBUGWAIT ||
+					ListLoopIndex == NIN_CFG_BIT_CHEAT_PATH ||
+					ListLoopIndex == NIN_CFG_BIT_REMLIMIT ||
+					ListLoopIndex == NIN_CFG_BIT_OSREPORT ||
+					ListLoopIndex == NIN_CFG_BIT_LOG ||
+					(IsWiiU() && ListLoopIndex == NIN_CFG_BIT_LED))
 				{
-					// These options are only available on Wii.
-					item_color = DARK_GRAY;
+					item_color = LIGHT_GRAY;
 				}
 				PrintFormat(MENU_SIZE, item_color, MENU_POS_X+50, SettingY(ListLoopIndex),
 					    "%-18s:%s", OptionStrings[ListLoopIndex], (ncfg->Config & (1 << ListLoopIndex)) ? "On " : "Off" );
@@ -1404,7 +1410,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 
 		// Maximum number of emulated controllers.
 		// don't allow Native Control settings to be changed.
-		PrintFormat(MENU_SIZE, DARK_GRAY, MENU_POS_X+50, SettingY(ListLoopIndex),
+		PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X+50, SettingY(ListLoopIndex),
 			    "%-18s:%d", OptionStrings[ListLoopIndex], (ncfg->MaxPads));
 		ListLoopIndex++;
 
@@ -1413,7 +1419,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 		if (LanIndex < NIN_LAN_FIRST || LanIndex >= NIN_LAN_LAST) {
 			LanIndex = NIN_LAN_LAST; //Auto
 		}
-		PrintFormat(MENU_SIZE, BLACK, MENU_POS_X+50, SettingY(ListLoopIndex),
+		PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X+50, SettingY(ListLoopIndex),
 			    "%-18s:%-4s", OptionStrings[ListLoopIndex], LanguageStrings[LanIndex] );
 		ListLoopIndex++;
 
@@ -1474,14 +1480,14 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 			}
 			PrintFormat(MENU_SIZE, BLACK, MENU_POS_X + 50, SettingY(ListLoopIndex),
 				    "%-18s:%-4d%s", OptionStrings[ListLoopIndex], MEM_CARD_BLOCKS(MemCardBlocksVal), MemCardBlocksVal > 2 ? "Unstable" : "");
-			PrintFormat(MENU_SIZE, BLACK, MENU_POS_X + 50, SettingY(ListLoopIndex+1),
+			PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X + 50, SettingY(ListLoopIndex+1),
 				    "%-18s:%-4s", OptionStrings[ListLoopIndex+1], (ncfg->Config & (NIN_CFG_MC_MULTI)) ? "On " : "Off");
 		}
 		ListLoopIndex+=2;
 
 		// Native controllers. (Required for GBA link; disables Bluetooth and USB HID.)
 		// don't allow Native Control settings to be changed.
-		PrintFormat(MENU_SIZE, DARK_GRAY, MENU_POS_X + 50, SettingY(ListLoopIndex),
+		PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X + 50, SettingY(ListLoopIndex),
 			    "%-18s:%-4s", OptionStrings[ListLoopIndex],
 			    (ncfg->Config & (NIN_CFG_NATIVE_SI)) ? "On " : "Off");
 		ListLoopIndex++;
@@ -1517,18 +1523,24 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 		ListLoopIndex++;
 
 		// Triforce Arcade Mode.
-		PrintFormat(MENU_SIZE, BLACK, MENU_POS_X + 320, SettingY(ListLoopIndex),
+		PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X + 320, SettingY(ListLoopIndex),
 			    "%-18s:%-4s", "TRI Arcade Mode", (ncfg->Config & (NIN_CFG_ARCADE_MODE)) ? "On " : "Off");
 		ListLoopIndex++;
 
 		// Wiimote CC Rumble
-		PrintFormat(MENU_SIZE, BLACK, MENU_POS_X + 320, SettingY(ListLoopIndex),
+		PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X + 320, SettingY(ListLoopIndex),
 			    "%-18s:%-4s", "Wiimote CC Rumble", (ncfg->Config & (NIN_CFG_CC_RUMBLE)) ? "On " : "Off");
 		ListLoopIndex++;
 
 		// Skip GameCube IPL
-		PrintFormat(MENU_SIZE, BLACK, MENU_POS_X + 320, SettingY(ListLoopIndex),
+		PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X + 320, SettingY(ListLoopIndex),
 			    "%-18s:%-4s", "Skip IPL", (ncfg->Config & (NIN_CFG_SKIP_IPL)) ? "Yes" : "No ");
+		ListLoopIndex++;
+
+		// Codes
+		u32 MeleeCodesIndex = ncfg->MeleeCodes;
+		PrintFormat(MENU_SIZE, BLACK, MENU_POS_X + 320, SettingY(ListLoopIndex),
+				"%-18s:%s", "Melee Codes", MeleeCodesStrings[MeleeCodesIndex]);
 		ListLoopIndex++;
 
 		// Draw the cursor.
@@ -1538,12 +1550,6 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 			{
 				// Setting is not usable on this platform.
 				// Gray out the cursor, too.
-				cursor_color = DARK_GRAY;
-			}
-			if ((ctx->settings.posX == NIN_SETTINGS_MAX_PADS ||
-			     ctx->settings.posX == NIN_SETTINGS_NATIVE_SI))
-			{
-				// don't allow Native Control settings to be changed.
 				cursor_color = DARK_GRAY;
 			}
 			PrintFormat(MENU_SIZE, cursor_color, MENU_POS_X + 30, SettingY(ctx->settings.posX), ARROW_RIGHT);

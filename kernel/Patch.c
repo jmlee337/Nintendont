@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "dol.h"
 #include "elf.h"
 #include "PatchCodes.h"
+#include "PatchMeleeCodes.h"
 #include "PatchWidescreen.h"
 #include "PatchTimers.h"
 #include "TRI.h"
@@ -103,6 +104,12 @@ extern u32 RealDiscCMD;
 extern u32 drcAddress;
 extern u32 drcAddressAligned;
 u32 IsN64Emu = 0;
+
+#define MELEE_VERSION_NONE		0
+#define MELEE_VERSION_NTSC_0	1
+#define MELEE_VERSION_NTSC_1	2
+#define MELEE_VERSION_NSTC_2	3
+#define MELEE_VERSION_PAL		4
 
 // SHA-1 hashes of known DSP modules.
 static const unsigned char DSPHashes[][20] =
@@ -1598,12 +1605,20 @@ void DoPatches( char *Buffer, u32 Length, u32 DiscOffset )
 	u32 PatchCount = FPATCH_VideoModes | FPATCH_VIConfigure | FPATCH_getTiming |
 		FPATCH_OSSleepThread | FPATCH_GXBegin | FPATCH_GXDrawDone;
 #ifdef CHEATS
-	u32 cheatsWanted = 0, debuggerWanted = 0;
+	u32 cheatsWanted = 0, debuggerWanted = 0, meleeCodesWanted = 0, meleeVersion = MELEE_VERSION_NONE;
 	if(ConfigGetConfig(NIN_CFG_CHEATS))
 		cheatsWanted = 1;
 	if(!IsWiiU() && ConfigGetConfig(NIN_CFG_DEBUGGER))
 		debuggerWanted = 1;
-	if(cheatsWanted || debuggerWanted)
+	if (ConfigGetMeleeCodes())
+	{
+		meleeVersion = Check_Melee_Version(GAME_ID);
+		if (meleeVersion != MELEE_VERSION_NONE) {
+			cheatsWanted = 0;
+			meleeCodesWanted = 1;
+		}
+	}
+	if(cheatsWanted || debuggerWanted || meleeCodesWanted)
 		PatchCount &= ~FPATCH_OSSleepThread;
 	/* So this can be used but for now we just use PADRead */
 	/*if( (IsWiiU() && ConfigGetConfig(NIN_CFG_CHEATS)) ||
@@ -2460,7 +2475,7 @@ void DoPatches( char *Buffer, u32 Length, u32 DiscOffset )
 						case FCODE_OSExceptionInit:
 						case FCODE_OSExceptionInit_DBG:
 						{
-							if(cheatsWanted || debuggerWanted)
+							if(cheatsWanted || debuggerWanted || meleeCodesWanted)
 							{
 								u32 patchOffset = (CurPatterns[j].PatchLength == FCODE_OSExceptionInit ? 0x1D4 : 0x1F0);
 								printpatchfound(CurPatterns[j].Name, CurPatterns[j].Type, FOffset + patchOffset);
@@ -3183,7 +3198,7 @@ void DoPatches( char *Buffer, u32 Length, u32 DiscOffset )
 			PatchWideMulti(MTXLightPerspectiveOffset + 0x24, 27);
 		}
 	}
-	if(cheatsWanted || debuggerWanted)
+	if(cheatsWanted || debuggerWanted || meleeCodesWanted)
 	{
 		//setup jump to codehandler stub
 		if(OSSleepThreadHook || PADHook)
@@ -3245,6 +3260,41 @@ void DoPatches( char *Buffer, u32 Length, u32 DiscOffset )
 			else
 			{
 				dbgprintf("Patch:Failed to open/find cheat file:\"%s\"\r\n", cheatPath );
+			}
+		}
+		//copy in melee codes if requested
+		if (meleeCodesWanted)
+		{
+			u32 codesSize = sizeof(UCF_CODES_1_02);
+			const u32* codes = 0;
+			switch (meleeVersion) {
+				case MELEE_VERSION_NTSC_0:
+					codes = UCF_CODES_1_00;
+					break;
+				case MELEE_VERSION_NTSC_1:
+					codes = UCF_CODES_1_01;
+					break;
+				case MELEE_VERSION_NSTC_2:
+					codes = UCF_CODES_1_02;
+					break;
+				case MELEE_VERSION_PAL:
+					codes = UCF_CODES_PAL;
+					break;
+			}
+
+			if (codesSize > cheats_area)
+			{
+				dbgprintf("Patch:Melee codes are too large, must not be larger than %i bytes!\r\n", cheats_area);
+			}
+			else if (codes == 0)
+			{
+				dbgprintf("Melee codes wanted without melee version, unreachable error.");
+			}
+			else
+			{
+				memcpy((void*)cheats_start, codes, codesSize);
+				sync_after_write((void*)cheats_start, codesSize);
+				dbgprintf("Patch:Copied melee codes to memory\r\n");
 			}
 		}
 
@@ -3860,4 +3910,31 @@ s32 Check_Cheats()
 		return 0;
 #endif
 	return -1;
+}
+
+u32 Check_Melee_Version(u32 gameId)
+{
+	switch(gameId) {
+		case 0x47414C45: // GALE
+		case 0x47414C4A: // GALJ
+			break;
+		case 0x47414C50: // GALP
+			return MELEE_VERSION_PAL;
+		default:
+			return MELEE_VERSION_NONE;
+	}
+
+	// For NTSC, get the version
+	u8 gameVers;
+	sync_before_read((void*)0x7, 1);
+	memcpy(&gameVers, (void*)0x7, 1);
+	switch (gameVers)
+	{
+		case 0:
+			return MELEE_VERSION_NTSC_0;
+		case 1:
+			return MELEE_VERSION_NTSC_1;
+		default:
+			return MELEE_VERSION_NSTC_2;
+	}
 }

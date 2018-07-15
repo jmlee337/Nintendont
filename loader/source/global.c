@@ -450,6 +450,11 @@ void UpdateNinCFG()
 		ncfg->Config &= ~NIN_CFG_SKIP_IPL;
 		ncfg->Version = 8;
 	}
+	if (ncfg->Version == 8)
+	{
+		ncfg->MeleeCodes = 0;
+		ncfg->Version = 9;
+	}
 }
 
 int CreateNewFile(const char *Path, unsigned int size)

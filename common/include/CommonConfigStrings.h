@@ -57,4 +57,10 @@ const char* VideoModeStrings[] =
 	"MPAL",
 };
 
+const char* MeleeCodesStrings[] =
+{
+	"Off",
+	"UCF 0.73",
+};
+
 #endif

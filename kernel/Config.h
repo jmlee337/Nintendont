@@ -111,4 +111,9 @@ static inline void ConfigSetMemcardBlocks(u32 MemCardBlocks)
 	sync_after_write(&(ncfg->MemCardBlocks), sizeof(ncfg->MemCardBlocks));
 }
 
+static inline u32 ConfigGetMeleeCodes(void)
+{
+	return ncfg->MeleeCodes;
+}
+
 #endif
