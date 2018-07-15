@@ -763,6 +763,12 @@ static bool UpdateGameSelectMenu(MenuCtx *ctx)
 					    "%50.50s [%.6s]%s",
 					    gi->Name, gi->ID,
 					    i == ctx->games.posX ? ARROW_LEFT : " ");
+				if (strncmp(gi->ID, "GAL", 3) == 0)
+				{
+					// If it's Melee, show the MeleeCodes setting
+					PrintFormat(DEFAULT_SIZE, TEAL, MENU_POS_X, gamelist_y,
+							"%27s", MeleeCodesStrings[ncfg->MeleeCodes]);
+				}
 			}
 			else
 			{
@@ -1058,6 +1064,20 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 					NULL
 				};
 				return desc_skip_ipl;
+			}
+
+			case 6: {
+				// Melee Codes
+				static const char *desc_melee_codes[] = {
+					"Enable certain codesets for",
+					"Super Smash Bros. Melee.",
+					"",
+					"UCF: Universal Controller Fix",
+					"allow all controllers to dash",
+					"back and shield drop equally.",
+					NULL
+				};
+				return desc_melee_codes;
 			}
 
 			default:
@@ -1538,9 +1558,8 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 		ListLoopIndex++;
 
 		// Codes
-		u32 MeleeCodesIndex = ncfg->MeleeCodes;
 		PrintFormat(MENU_SIZE, BLACK, MENU_POS_X + 320, SettingY(ListLoopIndex),
-				"%-18s:%s", "Melee Codes", MeleeCodesStrings[MeleeCodesIndex]);
+				"%-18s:%s", "Melee Codes", MeleeCodesStrings[ncfg->MeleeCodes]);
 		ListLoopIndex++;
 
 		// Draw the cursor.
@@ -1563,7 +1582,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 		const char *const *desc = GetSettingsDescription(ctx);
 		if (desc != NULL)
 		{
-			int line_num = 7;
+			int line_num = 8;
 			do {
 				if (**desc != 0)
 				{
@@ -1901,7 +1920,7 @@ void PrintInfo(void)
 	}
 	else if (ncfg->Config & (NIN_CFG_NATIVE_SI))
 	{
-		PrintFormat(DEFAULT_SIZE, PURPLE, MENU_POS_X, MENU_POS_Y + 20*3, "Native Control is ON!");
+		PrintFormat(DEFAULT_SIZE, TEAL, MENU_POS_X, MENU_POS_Y + 20*3, "Native Control is ON!");
 	}
 	else
 	{
