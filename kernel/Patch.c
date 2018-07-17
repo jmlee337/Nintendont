@@ -1605,18 +1605,19 @@ void DoPatches( char *Buffer, u32 Length, u32 DiscOffset )
 	u32 PatchCount = FPATCH_VideoModes | FPATCH_VIConfigure | FPATCH_getTiming |
 		FPATCH_OSSleepThread | FPATCH_GXBegin | FPATCH_GXDrawDone;
 #ifdef CHEATS
-	u32 cheatsWanted = 0, debuggerWanted = 0, meleeCodesWanted = 0, meleeVersion = MELEE_VERSION_NONE;
+	u32 cheatsWanted = 0, debuggerWanted = 0, meleeVersion = MELEE_VERSION_NONE;
 	if(ConfigGetConfig(NIN_CFG_CHEATS))
 		cheatsWanted = 1;
 	if(!IsWiiU() && ConfigGetConfig(NIN_CFG_DEBUGGER))
 		debuggerWanted = 1;
-	if (ConfigGetMeleeCodes())
+	u32 meleeCodesWanted = ConfigGetMeleeCodes();
+	if (meleeCodesWanted)
 	{
 		meleeVersion = Check_Melee_Version(GAME_ID);
-		if (meleeVersion != MELEE_VERSION_NONE) {
+		if (meleeVersion != MELEE_VERSION_NONE)
 			cheatsWanted = 0;
-			meleeCodesWanted = 1;
-		}
+		else
+			meleeCodesWanted = 0;
 	}
 	if(cheatsWanted || debuggerWanted || meleeCodesWanted)
 		PatchCount &= ~FPATCH_OSSleepThread;
@@ -3265,20 +3266,21 @@ void DoPatches( char *Buffer, u32 Length, u32 DiscOffset )
 		//copy in melee codes if requested
 		if (meleeCodesWanted)
 		{
-			u32 codesSize = sizeof(UCF_CODES_1_02);
+			u32 codesetIndex = meleeCodesWanted - 1;
+			u32 codesSize = CODESETS_102[codesetIndex].len;
 			const u32* codes = 0;
 			switch (meleeVersion) {
 				case MELEE_VERSION_NTSC_0:
-					codes = UCF_CODES_1_00;
+					codes = CODESETS_100[codesetIndex].arr;
 					break;
 				case MELEE_VERSION_NTSC_1:
-					codes = UCF_CODES_1_01;
+					codes = CODESETS_101[codesetIndex].arr;
 					break;
 				case MELEE_VERSION_NSTC_2:
-					codes = UCF_CODES_1_02;
+					codes = CODESETS_102[codesetIndex].arr;
 					break;
 				case MELEE_VERSION_PAL:
-					codes = UCF_CODES_PAL;
+					codes = CODESETS_PAL[codesetIndex].arr;
 					break;
 			}
 

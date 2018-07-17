@@ -60,6 +60,7 @@ const char* VideoModeStrings[] =
 const char* MeleeCodesStrings[] =
 {
 	"Codes Off",
+	"OSReport",
 	"UCF 0.73",
 };
 

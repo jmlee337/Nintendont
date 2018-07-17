@@ -1072,9 +1072,14 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 					"Enable certain codesets for",
 					"Super Smash Bros. Melee.",
 					"",
-					"UCF: Universal Controller Fix",
-					"allow all controllers to dash",
-					"back and shield drop equally.",
+					"OSReport: Print error info if",
+					"Melee crashes. You can take a",
+					"photo of the info and include",
+					"it with your bug report!",
+					"",
+					"UCF: Allow all controllers to"
+					"dashback and shield drop",
+					"equally.",
 					NULL
 				};
 				return desc_melee_codes;
@@ -1385,7 +1390,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 				case 6:
 					ctx->saveSettings = true;
 					ncfg->MeleeCodes++;
-					if (ncfg->MeleeCodes > 1)
+					if (ncfg->MeleeCodes > 2)
 					{
 						ncfg->MeleeCodes = 0;
 					}
