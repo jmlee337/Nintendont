@@ -3,7 +3,9 @@ Use it for Melee. Idiot-proof your setups and put nervous top players at ease.
 
 See the [README](https://github.com/FIX94/Nintendont/blob/master/README.md) for standard Nintendont. It's just like that except:
 * Native Control is locked to 'on'.
-* It has UCF 0.73 built-in, turn it on from the settings menu!
+* It has codesets built-in, turn them on from the settings menu!
+  * [OSReport](https://twitter.com/UnclePunch_/status/1017607009104023552): show error information if melee crashes. Take a photo and include it with your bug report!
+  * [UCF 0.73](http://www.20xx.me/ucf.html): allow all controllers to dashback and shield drop equally.
 
 ### Quick Installation:
 1. Get the [loader.dol](loader/loader.dol?raw=true), rename it to boot.dol and put it in /apps/Nintendont/ along with the files [meta.xml](nintendont/meta.xml?raw=true) and [icon.png](nintendont/icon.png?raw=true).
