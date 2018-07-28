@@ -1077,9 +1077,9 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 					"photo of the info and include",
 					"it with your bug report!",
 					"",
-					"UCF: Allow all controllers to"
-					"dashback and shield drop",
-					"equally.",
+					"UCF 0.73 (+ OSReport): Allow",
+					"controllers to dash back and",
+					"shield drop equally.",
 					NULL
 				};
 				return desc_melee_codes;
@@ -1417,8 +1417,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 					    "%-18s:%s", OptionStrings[ListLoopIndex], (ncfg->Config & (NIN_CFG_WIIU_WIDE)) ? "On " : "Off");
 			} else {
 				u32 item_color = BLACK;
-				if (ListLoopIndex == NIN_CFG_BIT_CHEATS ||
-					ListLoopIndex == NIN_CFG_BIT_DEBUGGER ||
+				if (ListLoopIndex == NIN_CFG_BIT_DEBUGGER ||
 					ListLoopIndex == NIN_CFG_BIT_DEBUGWAIT ||
 					ListLoopIndex == NIN_CFG_BIT_CHEAT_PATH ||
 					ListLoopIndex == NIN_CFG_BIT_REMLIMIT ||
@@ -1435,7 +1434,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 
 		// Maximum number of emulated controllers.
 		// don't allow Native Control settings to be changed.
-		PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X+50, SettingY(ListLoopIndex),
+		PrintFormat(MENU_SIZE, TEAL, MENU_POS_X+50, SettingY(ListLoopIndex),
 			    "%-18s:%d", OptionStrings[ListLoopIndex], (ncfg->MaxPads));
 		ListLoopIndex++;
 
@@ -1512,7 +1511,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 
 		// Native controllers. (Required for GBA link; disables Bluetooth and USB HID.)
 		// don't allow Native Control settings to be changed.
-		PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X + 50, SettingY(ListLoopIndex),
+		PrintFormat(MENU_SIZE, TEAL, MENU_POS_X + 50, SettingY(ListLoopIndex),
 			    "%-18s:%-4s", OptionStrings[ListLoopIndex],
 			    (ncfg->Config & (NIN_CFG_NATIVE_SI)) ? "On " : "Off");
 		ListLoopIndex++;

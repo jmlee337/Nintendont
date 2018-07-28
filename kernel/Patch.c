@@ -1614,9 +1614,7 @@ void DoPatches( char *Buffer, u32 Length, u32 DiscOffset )
 	if (meleeCodesWanted)
 	{
 		meleeVersion = Check_Melee_Version(GAME_ID);
-		if (meleeVersion != MELEE_VERSION_NONE)
-			cheatsWanted = 0;
-		else
+		if (meleeVersion == MELEE_VERSION_NONE)
 			meleeCodesWanted = 0;
 	}
 	if(cheatsWanted || debuggerWanted || meleeCodesWanted)
@@ -3231,38 +3229,6 @@ void DoPatches( char *Buffer, u32 Length, u32 DiscOffset )
 			dbgprintf("Possible Code Size: %08x\r\n", cheats_area);
 			memset((void*)cheats_start, 0, cheats_area);
 		}
-		//copy in gct file if requested
-		if( cheatsWanted && TRIGame != TRI_SB && useipl == 0 )
-		{
-			FIL CodeFD;
-			if( Check_Cheats() == 0 && f_open_char( &CodeFD, cheatPath, FA_OPEN_EXISTING|FA_READ ) == FR_OK )
-			{
-				if( CodeFD.obj.objsize > cheats_area )
-				{
-					dbgprintf("Patch:Cheatfile is too large, it must not be larger than %i bytes!\r\n", cheats_area);
-				}
-				else
-				{
-					void *CMem = malloc(CodeFD.obj.objsize);
-					if( f_read( &CodeFD, CMem, CodeFD.obj.objsize, &read ) == FR_OK )
-					{
-						memcpy((void*)cheats_start, CMem, CodeFD.obj.objsize);
-						sync_after_write((void*)cheats_start, CodeFD.obj.objsize);
-						dbgprintf("Patch:Copied %s to memory\r\n", cheatPath);
-					}
-					else
-					{
-						dbgprintf("Patch:Failed to read %s\r\n", cheatPath);
-					}
-					free( CMem );
-				}
-				f_close( &CodeFD );
-			}
-			else
-			{
-				dbgprintf("Patch:Failed to open/find cheat file:\"%s\"\r\n", cheatPath );
-			}
-		}
 		//copy in melee codes if requested
 		if (meleeCodesWanted)
 		{
@@ -3297,6 +3263,46 @@ void DoPatches( char *Buffer, u32 Length, u32 DiscOffset )
 				memcpy((void*)cheats_start, codes, codesSize);
 				sync_after_write((void*)cheats_start, codesSize);
 				dbgprintf("Patch:Copied melee codes to memory\r\n");
+				if (cheatsWanted)
+				{
+					cheats_start += codesSize - 8;
+					cheats_area = (POffset < cheats_start) ? 0 : (POffset - cheats_start);
+					dbgprintf("Possible Code Size: %08x\r\n", cheats_area);
+				}
+			}
+		}
+		//copy in gct file if requested
+		if( cheatsWanted && TRIGame != TRI_SB && useipl == 0 )
+		{
+			FIL CodeFD;
+			if( Check_Cheats() == 0 && f_open_char( &CodeFD, cheatPath, FA_OPEN_EXISTING|FA_READ ) == FR_OK )
+			{
+				u64 cheats_size = CodeFD.obj.objsize;
+				if( cheats_size > cheats_area )
+				{
+					dbgprintf("Patch:Cheatfile is too large, it must not be larger than %i bytes!\r\n", cheats_area);
+				}
+				else
+				{
+					void *CMem = malloc(cheats_size);
+					if( f_read( &CodeFD, CMem, cheats_size, &read ) == FR_OK )
+					{
+						u32 offset = meleeCodesWanted ? 8 : 0;
+						memcpy((void*)cheats_start, CMem + offset, cheats_size - offset);
+						sync_after_write((void*)cheats_start, cheats_size - offset);
+						dbgprintf("Patch:Copied %s to memory\r\n", cheatPath);
+					}
+					else
+					{
+						dbgprintf("Patch:Failed to read %s\r\n", cheatPath);
+					}
+					free( CMem );
+				}
+				f_close( &CodeFD );
+			}
+			else
+			{
+				dbgprintf("Patch:Failed to open/find cheat file:\"%s\"\r\n", cheatPath );
 			}
 		}
 
