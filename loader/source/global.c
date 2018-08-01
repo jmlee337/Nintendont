@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Loader) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Loader) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -353,9 +353,6 @@ bool LoadNinCFG(void)
 	if (ncfg->Version != NIN_CFG_VERSION)
 		ConfigLoaded = false;
 
-	if (ncfg->MaxPads > NIN_CFG_MAXPAD)
-		ConfigLoaded = false;
-
 	return ConfigLoaded;
 }
 
@@ -439,14 +436,12 @@ void UpdateNinCFG()
 		ncfg->Version = 6;
 	}
 	if (ncfg->Version == 6)
-	{	//New flag, disabled by default
-		ncfg->Config &= ~NIN_CFG_ARCADE_MODE;
+	{
 		ncfg->Version = 7;
 	}
 	if (ncfg->Version == 7)
-	{	// Wiimote CC Rumble, disabled by default;
+	{
 		// don't skip IPL by default.
-		ncfg->Config &= ~NIN_CFG_CC_RUMBLE;
 		ncfg->Config &= ~NIN_CFG_SKIP_IPL;
 		ncfg->Version = 8;
 	}
@@ -599,7 +594,6 @@ int UnmountDevice(BYTE pdrv)
  */
 void CloseDevices(void)
 {
-	closeLog();
 	UnmountDevice(DEV_SD);
 	UnmountDevice(DEV_USB);
 }

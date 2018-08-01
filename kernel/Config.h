@@ -75,11 +75,6 @@ static inline u32 ConfigGetLanguage(void)
 	return ncfg->Language;
 }
 
-static inline u32 ConfigGetMaxPads(void)
-{
-	return ncfg->MaxPads;
-}
-
 static inline u32 ConfigGetGameID(void)
 {
 	return ncfg->GameID;

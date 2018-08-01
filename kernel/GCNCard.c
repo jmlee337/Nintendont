@@ -6,9 +6,6 @@
 #include "debug.h"
 #include "ff_utf8.h"
 
-// Triforce variables.
-extern vu32 TRIGame;
-
 // Memory Card context.
 static u8 *const GCNCard_base = (u8*)(0x11000000);
 
@@ -75,9 +72,6 @@ int GCNCard_Load(int slot)
 			break;
 #ifdef GCNCARD_ENABLE_SLOT_B
 		case 1:
-			// Slot B (not valid on Triforce)
-			if (TRIGame != 0)
-				return -1;
 			break;
 #endif /* GCNCARD_ENABLE_SLOT_B */
 		default:
@@ -297,12 +291,6 @@ bool GCNCard_CheckChanges(void)
 */
 void GCNCard_Save(void)
 {
-	if (TRIGame)
-	{
-		// Triforce doesn't use the standard EXI CARD interface.
-		return;
-	}
-
 	int slot;
 	for (slot = 0; slot < ARRAY_SIZE(memCard); slot++)
 	{

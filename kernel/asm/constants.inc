@@ -39,7 +39,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 .set	INT_BASE,		0xD3026500
 .set	RSW_INT,		INT_BASE+0x00
 .set	DI_INT,			INT_BASE+0x20
-.set	SI_INT,			INT_BASE+0x40
 .set	EXI_INT,		INT_BASE+0x60
 
 /** Audio streaming **/
@@ -60,20 +59,5 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 .set	DI_IMM,		0xC0002F20
 
 .set	DI_BASE,	0xD3026000
-
-/** Triforce **/
-
-.set	IN_TESTMENU,	0xD3003080	/* uncached for kernel */
-
-/** PAD redirection **/
-
-.set	PadStub,	0x93000000
-.set	PadBuff,	0x93003100
-
-.set	PadRumble,	0x93003010
-.set	PadRumble_0,	PadRumble+0x00
-.set	PadRumble_1,	PadRumble+0x04
-.set	PadRumble_2,	PadRumble+0x08
-.set	PadRumble_3,	PadRumble+0x0C
 
 #endif /* __NINTENDONT_KERNEL_ASM_CONSTANTS_H__ */

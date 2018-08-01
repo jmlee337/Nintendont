@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Loader) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Loader) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -87,16 +87,6 @@ extern GRRLIB_ttfFont *myFont;
 extern GRRLIB_texImg *background;
 extern GRRLIB_texImg *screen_buffer;
 
-enum
-{
-	TRI_NONE = 0,
-	TRI_GP1,
-	TRI_GP2,
-	TRI_AX,
-	TRI_VS4,
-	TRI_SB,
-} TRIGames;
-
 enum ContentType
 {
 	CONTENT_REQUIRED=	(1<< 0),	// not sure
@@ -141,19 +131,6 @@ typedef struct
 
 } __attribute__((packed)) TitleMetaData;
 
-/**
- * Is this system a Wii U?
- * @return True if this is Wii U; false if not.
- */
-extern bool isWiiVC;
-static inline bool IsWiiU(void)
-{
-	return ((*(vu16*)0xCD8005A0 == 0xCAFE) || isWiiVC);
-}
-static inline bool IsWiiUFastCPU(void)
-{
-	return ((*(vu16*)0xCD8005A0 == 0xCAFE) && ((*(vu32*)0xCD8005B0 & 0x20) == 0));
-}
 // FIXME: This return type isn't quite correct...
 const char* const GetRootDevice();
 void RAMInit(void);

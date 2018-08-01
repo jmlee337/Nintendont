@@ -23,13 +23,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "EXI.h"
 #include "GCNCard.h"
 #include "debug.h"
-#include "wdvd.h"
 
 #include "ff_utf8.h"
 
-extern u32 TRIGame;
 extern u32 DiscRequested;
-extern bool wiiVCInternal;
 
 u32 ISOFileOpen = 0;
 
@@ -92,18 +89,9 @@ static inline void ISOReadDirect(void *Buffer, u32 Length, u64 Offset64)
 		// Standard ISO/GCM file.
 		if(LastOffset64 != Offset64)
 		{
-			if(wiiVCInternal)
-				WDVD_FST_LSeek( Offset64 );
-			else
-				f_lseek( &GameFile, Offset64 );
+			f_lseek( &GameFile, Offset64 );
 		}
-		if(wiiVCInternal)
-		{
-			sync_before_read( Buffer, Length );
-			read = WDVD_FST_Read( Buffer, Length );
-		}
-		else
-			f_read( &GameFile, Buffer, Length, &read );
+		f_read( &GameFile, Buffer, Length, &read );
 	}
 	else
 	{
@@ -139,18 +127,9 @@ static inline void ISOReadDirect(void *Buffer, u32 Length, u64 Offset64)
 			{
 				// Seek to the physical block address.
 				const u32 physBlockStartAddr = CISO_HEADER_SIZE + ((u32)physBlockStartIdx * CISO_BLOCK_SIZE);
-				if(wiiVCInternal)
-				{
-					WDVD_FST_LSeek( physBlockStartAddr + blockStartOffset );
-					sync_before_read( ptr8, read_sz );
-					read = WDVD_FST_Read( ptr8, read_sz );
-				}
-				else
-				{
-					f_lseek(&GameFile, physBlockStartAddr + blockStartOffset);
-					// Read read_sz bytes.
-					f_read(&GameFile, ptr8, read_sz, &read);
-				}
+				f_lseek(&GameFile, physBlockStartAddr + blockStartOffset);
+				// Read read_sz bytes.
+				f_read(&GameFile, ptr8, read_sz, &read);
 				if (read != read_sz)
 				{
 					// Error reading the data.
@@ -186,18 +165,10 @@ static inline void ISOReadDirect(void *Buffer, u32 Length, u64 Offset64)
 			{
 				// Seek to the physical block address.
 				const u32 physBlockAddr = CISO_HEADER_SIZE + ((u32)physBlockIdx * CISO_BLOCK_SIZE);
-				if(wiiVCInternal)
-				{
-					WDVD_FST_LSeek( physBlockAddr );
-					sync_before_read( ptr8, CISO_BLOCK_SIZE );
-					read = WDVD_FST_Read( ptr8, CISO_BLOCK_SIZE );
-				}
-				else
-				{
-					f_lseek(&GameFile, physBlockAddr);
-					// Read one block worth of data.
-					f_read(&GameFile, ptr8, CISO_BLOCK_SIZE, &read);
-				}
+				f_lseek(&GameFile, physBlockAddr);
+				// Read one block worth of data.
+				f_read(&GameFile, ptr8, CISO_BLOCK_SIZE, &read);
+
 				if (read != CISO_BLOCK_SIZE)
 				{
 					// Error reading the data.
@@ -228,18 +199,10 @@ static inline void ISOReadDirect(void *Buffer, u32 Length, u64 Offset64)
 			{
 				// Seek to the physical block address.
 				const u32 physBlockEndAddr = CISO_HEADER_SIZE + ((u32)physBlockEndIdx * CISO_BLOCK_SIZE);
-				if(wiiVCInternal)
-				{
-					WDVD_FST_LSeek( physBlockEndAddr );
-					sync_before_read( ptr8, Length );
-					read = WDVD_FST_Read( ptr8, Length );
-				}
-				else
-				{
-					f_lseek(&GameFile, physBlockEndAddr);
-					// Read Length bytes.
-					f_read(&GameFile, ptr8, Length, &read);
-				}
+				f_lseek(&GameFile, physBlockEndAddr);
+				// Read Length bytes.
+				f_read(&GameFile, ptr8, Length, &read);
+
 				if (read != Length)
 				{
 					// Error reading the data.
@@ -262,34 +225,26 @@ static u8 isoTmpBuf[0x20] ALIGNED(32);
 
 bool ISOInit()
 {
-	if(wiiVCInternal)
-	{
-		if(WDVD_FST_OpenDisc(DiscRequested) != 0)
-			Shutdown();
-	}
-	else
-	{
-		s32 ret = f_open_char( &GameFile, ConfigGetGamePath(), FA_READ|FA_OPEN_EXISTING );
-		if( ret != FR_OK )
-			return false;
+	s32 ret = f_open_char( &GameFile, ConfigGetGamePath(), FA_READ|FA_OPEN_EXISTING );
+	if( ret != FR_OK )
+		return false;
 
 #if _USE_FASTSEEK
-		/* Setup table */
-		u32 tblsize = 4; //minimum default size
+	/* Setup table */
+	u32 tblsize = 4; //minimum default size
+	GameFile.cltbl = malloc(tblsize * sizeof(DWORD));
+	GameFile.cltbl[0] = tblsize;
+	ret = f_lseek(&GameFile, CREATE_LINKMAP);
+	if( ret == FR_NOT_ENOUGH_CORE )
+	{	/* We need more table mem */
+		tblsize = GameFile.cltbl[0];
+		free(GameFile.cltbl);
+		dbgprintf("ISO:Fragmented, allocating %08x\r\n", tblsize);
 		GameFile.cltbl = malloc(tblsize * sizeof(DWORD));
 		GameFile.cltbl[0] = tblsize;
-		ret = f_lseek(&GameFile, CREATE_LINKMAP);
-		if( ret == FR_NOT_ENOUGH_CORE )
-		{	/* We need more table mem */
-			tblsize = GameFile.cltbl[0];
-			free(GameFile.cltbl);
-			dbgprintf("ISO:Fragmented, allocating %08x\r\n", tblsize);
-			GameFile.cltbl = malloc(tblsize * sizeof(DWORD));
-			GameFile.cltbl[0] = tblsize;
-			f_lseek(&GameFile, CREATE_LINKMAP);
-		}
-#endif /* _USE_FASTSEEK */
+		f_lseek(&GameFile, CREATE_LINKMAP);
 	}
+#endif /* _USE_FASTSEEK */
 
 	/* Setup direct reader */
 	ISOFileOpen = 1;
@@ -368,16 +323,11 @@ void ISOClose()
 {
 	if(ISOFileOpen)
 	{
-		if(wiiVCInternal)
-			WDVD_FST_Close();
-		else
-		{
-			f_close( &GameFile );
+		f_close( &GameFile );
 #if _USE_FASTSEEK
-			free(GameFile.cltbl);
-			GameFile.cltbl = NULL;
+		free(GameFile.cltbl);
+		GameFile.cltbl = NULL;
 #endif /* _USE_FASTSEEK */
-		}
 	}
 	ISOFileOpen = 0;
 	ISO_IsCISO = false;
@@ -391,25 +341,14 @@ void ISOSetupCache()
 	DCCache = CACHE_START;
 	DCacheLimit = CACHE_SIZE;
 	/* Setup Caching */
-	if(TRIGame)
+	u32 MemCardSize = 0;
+	if (ConfigGetConfig(NIN_CFG_MEMCARDEMU))
 	{
-		//AMBB buffer is before cache
-		DCCache += 0x10000;
-		DCacheLimit -= 0x10000;
-		//triforce buffer is after cache
-		DCacheLimit -= 0x300000;
+		// Get the total card size from GCNCard.c.
+		MemCardSize = GCNCard_GetTotalSize();
 	}
-	else
-	{
-		u32 MemCardSize = 0;
-		if (ConfigGetConfig(NIN_CFG_MEMCARDEMU))
-		{
-			// Get the total card size from GCNCard.c.
-			MemCardSize = GCNCard_GetTotalSize();
-		}
-		DCCache += MemCardSize; //memcard is before cache
-		DCacheLimit -= MemCardSize;
-	}
+	DCCache += MemCardSize; //memcard is before cache
+	DCacheLimit -= MemCardSize;
 	memset32(DC, 0, sizeof(DataCache)* CACHE_MAX);
 
 	DataCacheOffset = 0;
@@ -438,17 +377,11 @@ void ISOSeek(u32 Offset)
 
 			const u32 blockOffset = (u32)(Offset64 % CISO_BLOCK_SIZE);
 			const u32 physAddr = CISO_HEADER_SIZE + ((u32)physBlockIdx * CISO_BLOCK_SIZE) + blockOffset;
-			if(wiiVCInternal)
-				WDVD_FST_LSeek( physAddr );
-			else
-				f_lseek( &GameFile, physAddr );
+			f_lseek( &GameFile, physAddr );
 		}
 		else
 		{
-			if(wiiVCInternal)
-				WDVD_FST_LSeek( Offset64 );
-			else
-				f_lseek( &GameFile, Offset64 );
+			f_lseek( &GameFile, Offset64 );
 		}
 		LastOffset64 = Offset64;
 	}

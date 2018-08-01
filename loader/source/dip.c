@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Loader) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Loader) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -22,13 +22,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <unistd.h>
 #include "dip.h"
 #include "global.h"
-
-void DVDStartCache(void)
-{
-	DI_CMD_0	= 0xF9000000;
-	DI_CONTROL = 1;
-	while( DI_CONTROL & 1 );
-}
 
 //Use same buffer as kernel, uncached though, to see howto cache see DI.c
 static u8 *const DISC_DRIVE_BUFFER = (u8*)0x92000800;

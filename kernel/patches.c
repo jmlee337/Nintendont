@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Kernel) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Kernel) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 Copyright (C) 2014 - 2016 FIX94
@@ -51,20 +51,6 @@ enum
 										//GXInitTlutObj_A,
 										//GXInitTlutObj_B,
 	FCODE_GXLoadTlut,
-	FCODE__SITransfer, 
-										//_SITransfer_A,
-										//_SITransfer_B,
-	FCODE_CompleteTransfer,
-										//CompleteTransfer_A,
-										//CompleteTransfer_B,
-										//CompleteTransfer_C,
-	FCODE_SIInit,
-										//SIInit_A,
-										//SIInit_B,
-										//SIInit_C,
-	FCODE_SIPollingInterrupt,
-										//SIEnablePollingInterrupt_A,
-										//SIEnablePollingInterrupt_B,
 	FCODE___ARHandler,
 	FCODE___ARChecksize_A,
 	FCODE___ARChecksize_B,
@@ -76,9 +62,6 @@ enum
 	FCODE_C_MTXLightPerspective,
 	FCODE_J3DUClipper_clip,
 	//FCODE_C_MTXOrtho,
-	FCODE_DVDSendCMDEncrypted,
-	FCODE_IsTriforceType3,
-	FCODE_GCAMSendCommand,
 	FCODE___fwrite,
 										//__fwrite_A,	
 										//__fwrite_B,	
@@ -93,11 +76,6 @@ enum
 										//EXIntrruptHandler_A,	
 										//EXIntrruptHandler_B,	
 										//EXIntrruptHandler_C,
-	FCODE_PADRead,
-	FCODE___PADSetSamplingRate,
-	FCODE_PADControlAllMotors,
-	FCODE_PADControlMotor,
-	FCODE_PADIsBarrel,
 	FCODE_EXIDMA,
 	FCODE_EXIUnlock,
 	FCODE___CARDStat_A,
@@ -128,18 +106,10 @@ enum
 	FGROUP_GXLoadTlut,
 	FGROUP_ARInit,
 	FGROUP_ARStartDMA,
-	FGROUP_SIGetType,
-	FGROUP__SITransfer,
-	FGROUP_CompleteTransfer,
-	FGROUP_SIInit,
-	FGROUP_SIPollingInterrupt,
 	FGROUP___ARChecksize,
 	FGROUP_DVDLowRead,
 	FGROUP_DVDLowAudioStream,
 	FGROUP___fwrite,
-	FGROUP_PADRead,
-	FGROUP_PADControlAllMotors,
-	FGROUP_PADControlMotor,
 	FGROUP_TCIntrruptHandler,
 	FGROUP_EXIntrruptHandler,
 	FGROUP_EXILock,
@@ -228,70 +198,6 @@ static FuncPattern NormalFPatterns[] =
 	{   0x88,   18,    8,    2,    0,    2,	DVDLowAudioStatusNULL,	sizeof(DVDLowAudioStatusNULL),"DVDLowRequestAudioStatus",	NULL,FGROUP_NONE,			0 },
 	{   0x98,   19,    8,    2,    1,    3,	DVDLowAudioConfigNULL,	sizeof(DVDLowAudioConfigNULL),"DVDLowAudioBufferConfig",	NULL,FGROUP_NONE,			0 },
 #endif
-};
-
-static FuncPattern TRIFPatterns[] =
-{
-#ifdef TRI_DI_PATCH
-	{   0xB4,   18,   11,    1,    0,    7,	NULL,				FCODE_DVDSendCMDEncrypted,	"DVDSendCMDEncrypted",	NULL,		FGROUP_NONE,				0 },
-#endif
-	{  0x484,  104,   30,   20,   17,   21, NULL,				FCODE_IsTriforceType3,		"IsTriforceType3",		NULL,		FGROUP_NONE,				0 },
-	{   0x54,   10,    2,    2,    0,    2,	NULL,				FCODE_GCAMSendCommand,		"GCAMSendCommand",		NULL,		FGROUP_NONE,				0 },
-	{  0x168,   22,   10,    7,    6,   10,	SITransfer,			sizeof(SITransfer),			"SITransfer",			NULL,		FGROUP_NONE,				0 },
-};
-
-static FuncPattern SIFPatterns[] =
-{
-	{  0x2F8,   60,   22,    2,   16,   25,	NULL,				FCODE_CompleteTransfer,		"CompleteTransfer",		"A",		FGROUP_CompleteTransfer,	0 },
-	{  0x240,   40,   14,    0,   13,   11,	NULL,				FCODE_CompleteTransfer,		"CompleteTransfer",		"B",		FGROUP_CompleteTransfer,	0 },
-	{  0x180,   29,    9,    3,    9,    9,	NULL,				FCODE_CompleteTransfer,		"CompleteTransfer",		"C",		FGROUP_CompleteTransfer,	0 },
-	{   0xE0,   18,    4,    0,    6,    3,	NULL,				FCODE_CompleteTransfer,		"CompleteTransfer",		"DBG",		FGROUP_CompleteTransfer,	0 },
-
-	{   0x94,    8,   10,    2,    4,    2,	NULL,				FCODE_SIPollingInterrupt,	"SIEnablePollingInterrupt","A",		FGROUP_SIPollingInterrupt,	0 },
-	{   0xA4,    9,    5,    2,    6,    4,	NULL,				FCODE_SIPollingInterrupt,	"SIEnablePollingInterrupt","B",		FGROUP_SIPollingInterrupt,	0 },
-
-	{   0xB0,   21,    9,    8,    0,    2,	NULL,				FCODE_SIInit,				"SIInit",				"A",		FGROUP_SIInit,				0 },
-	{   0x70,   13,    8,    2,    0,    2,	NULL,				FCODE_SIInit,				"SIInit",				"B",		FGROUP_SIInit,				0 },
-	{   0x90,   17,    8,    6,    0,    2,	NULL,				FCODE_SIInit,				"SIInit",				"C",		FGROUP_SIInit,				0 },
-	{   0xA0,   20,    8,    7,    0,    2,	NULL,				FCODE_SIInit,				"SIInit",				"D",		FGROUP_SIInit,				0 },
-	{   0xB0,   22,    9,    8,    0,    2,	NULL,				FCODE_SIInit,				"SIInit",				"E",		FGROUP_SIInit,				0 },
-	{   0x9C,   19,    9,    6,    0,    2,	NULL,				FCODE_SIInit,				"SIInit",				"F",		FGROUP_SIInit,				0 },
-	{   0xA8,   21,    9,    7,    0,    2,	NULL,				FCODE_SIInit,				"SIInit",				"DBG A",	FGROUP_SIInit,				0 },
-	{   0x7C,   15,    9,    2,    0,    2,	NULL,				FCODE_SIInit,				"SIInit",				"DBG B",	FGROUP_SIInit,				0 },
-
-	{  0x208,   38,   18,    3,   13,   10,	NULL,				FCODE__SITransfer,			"__SITransfer",			"A",		FGROUP__SITransfer,			0 },
-	{  0x204,   37,   18,    3,   13,   11,	NULL,				FCODE__SITransfer,			"__SITransfer",			"B",		FGROUP__SITransfer,			0 },
-	{  0x208,   38,   11,    7,   13,    9,	NULL,				FCODE__SITransfer,			"__SITransfer",			"C",		FGROUP__SITransfer,			0 },
-	{  0x204,   37,   11,    7,   13,    9,	NULL,				FCODE__SITransfer,			"__SITransfer",			"DBG",		FGROUP__SITransfer,			0 },
-
-	{  0x1C0,   35,    9,    8,    7,   19,	SIGetType,			SIGetType_size,				"SIGetType",			"A",		FGROUP_SIGetType,			0 },
-	{  0x1F4,   27,    9,    9,    9,   24,	SIGetType,			SIGetType_size,				"SIGetType",			"B",		FGROUP_SIGetType,			0 },
-};
-
-static FuncPattern PADFPatterns[] = 
-{
-
-	{  0x3A8,   86,   13,   27,   17,   24,	NULL,				FCODE_PADRead,				"PADRead",				"A",		FGROUP_PADRead,				0 },
-	{  0x2FC,   73,    8,   23,   16,   15,	NULL,				FCODE_PADRead,				"PADRead",				"B",		FGROUP_PADRead,				0 },
-	{  0x3B0,   87,   13,   27,   17,   25,	NULL,				FCODE_PADRead,				"PADRead",				"C",		FGROUP_PADRead,				0 },
-	{  0x334,   78,    7,   20,   17,   19,	NULL,				FCODE_PADRead,				"PADRead",				"D",		FGROUP_PADRead,				0 },
-	{  0x1FC,   49,    4,   10,   11,   11,	NULL,				FCODE_PADRead,				"PADRead",				"IPL",		FGROUP_PADRead,				0 },
-	{  0x2A8,   66,    4,   20,   17,   14,	NULL,				FCODE_PADRead,				"PADRead",				"DBG A",	FGROUP_PADRead,				0 },
-	{  0x2AC,   65,    3,   15,   16,   18,	NULL,				FCODE_PADRead,				"PADRead",				"DBG B",	FGROUP_PADRead,				0 },
-
-	{   0xB4,    8,    2,    5,    4,    5,	NULL,				FCODE_PADControlAllMotors,	"PADControlAllMotors",	"A",		FGROUP_PADControlAllMotors,	0 },
-	{   0xC8,    9,    2,    5,    5,    5,	NULL,				FCODE_PADControlAllMotors,	"PADControlAllMotors",	"B",		FGROUP_PADControlAllMotors,	0 },
-	{   0xC8,   13,    2,    4,    4,    6,	NULL,				FCODE_PADControlAllMotors,	"PADControlAllMotors",	"C",		FGROUP_PADControlAllMotors,	0 },
-
-	{   0xB4,   11,    5,    5,    3,    5,	NULL,				FCODE_PADControlMotor,		"PADControlMotor",		"A",		FGROUP_PADControlMotor,		0 },
-	{   0xA0,   10,    5,    5,    2,    5,	NULL,				FCODE_PADControlMotor,		"PADControlMotor",		"B",		FGROUP_PADControlMotor,		0 },
-	{   0xB8,   14,    5,    4,    2,    7,	NULL,				FCODE_PADControlMotor,		"PADControlMotor",		"C",		FGROUP_PADControlMotor,		0 },
-	{   0xB0,   10,    2,    6,    3,    6,	NULL,				FCODE_PADControlMotor,		"PADControlMotor",		"DBG A",	FGROUP_PADControlMotor,		0 },
-	{   0xC8,   14,    2,    5,    3,    8,	NULL,				FCODE_PADControlMotor,		"PADControlMotor",		"DBG B",	FGROUP_PADControlMotor,		0 },
-
-	{   0x14,    1,    0,    0,    2,    0,	NULL,				FCODE_PADIsBarrel,			"PADIsBarrel",			NULL,		FGROUP_NONE,				0 },
-
-	{   0xE8,   14,    7,    6,   10,    6,	NULL,				FCODE___PADSetSamplingRate,	"__PADSetSamplingRate",	NULL,		FGROUP_NONE,				0 },
 };
 
 static FuncPattern EXIFPatterns[] =
@@ -402,9 +308,6 @@ static FuncPattern PSOFPatterns[] =
 enum
 {
 	PCODE_NORMAL = 0,
-	PCODE_TRI,
-	PCODE_SI,
-	PCODE_PAD,
 	PCODE_EXI,
 	PCODE_DATEL,
 	PCODE_PSO,
@@ -414,9 +317,6 @@ enum
 static const FuncPatterns AllFPatterns[] = 
 {
 	{ NormalFPatterns, sizeof(NormalFPatterns) / sizeof(FuncPattern), PCODE_NORMAL },
-	{ TRIFPatterns, sizeof(TRIFPatterns) / sizeof(FuncPattern), PCODE_TRI },
-	{ SIFPatterns, sizeof(SIFPatterns) / sizeof(FuncPattern), PCODE_SI },
-	{ PADFPatterns, sizeof(PADFPatterns) / sizeof(FuncPattern), PCODE_PAD },
 	{ EXIFPatterns, sizeof(EXIFPatterns) / sizeof(FuncPattern), PCODE_EXI },
 	{ DatelFPatterns, sizeof(DatelFPatterns) / sizeof(FuncPattern), PCODE_DATEL },
 	{ PSOFPatterns, sizeof(PSOFPatterns) / sizeof(FuncPattern), PCODE_PSO },

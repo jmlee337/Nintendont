@@ -62,19 +62,13 @@ kernel: kernel/asm fatfs/libfat-arm.a codehandler
 	@echo " "
 	$(MAKE) -C kernel
 
-loader/source/ppc:
-	@echo " "
-	@echo "Building Nintendont HID"
-	@echo " "
-	$(MAKE) -C loader/source/ppc
-
 kernelboot:
 	@echo " "
 	@echo "Building Nintendont kernelboot"
 	@echo " "
 	$(MAKE) -C kernelboot
 
-loader: multidol resetstub fatfs/libfat-ppc.a kernel kernelboot loader/source/ppc
+loader: multidol resetstub fatfs/libfat-ppc.a kernel kernelboot
 	@echo " "
 	@echo "Building Nintendont loader"
 	@echo " "
@@ -92,5 +86,4 @@ clean:
 	$(MAKE) -C codehandler clean
 	$(MAKE) -C kernel clean
 	$(MAKE) -C kernelboot clean
-	$(MAKE) -C loader/source/ppc clean
 	$(MAKE) -C loader clean

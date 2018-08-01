@@ -20,9 +20,6 @@ FakeInterrupt:
 	lwz		%r0,	DI_INT@l(%r3)
 	rlwimi	%r31,	%r0,	0, 29, 29	#0x4
 
-	lwz		%r0,	SI_INT@l(%r3)
-	rlwimi	%r31,	%r0,	0, 28, 28	#0x8
-
 	lwz		%r0,	EXI_INT@l(%r3)
 	rlwimi	%r31,	%r0,	0, 27, 27	#0x10
 

@@ -57,7 +57,6 @@ void ReadSpeed_Init()
 }
 
 u32 UseReadLimit = 1;
-extern vu32 TRIGame;
 extern u32 RealDiscCMD;
 void ReadSpeed_Start()
 {

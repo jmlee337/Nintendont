@@ -7,15 +7,12 @@
 //#define CHEATMENU	1
 #define EXIPATCH	1
 #define CHEATS		1
-//#define HID		1
 //#define CARDDEBUG 1
 #define AUDIOSTREAM 1
 #define PATCHALL	1
 //#define PERFMON 1
-#define TRI_DI_PATCH 1
 
 //#define DEBUG_ES	1
-//#define DEBUG_HID	1
 //#define DEBUG_DI	1
 //#define DEBUG_JVSIO 1
 //#define DEBUG_GCAM 1
@@ -170,7 +167,6 @@ typedef s32(*ipccallback)(s32 result,void *usrdata);
 #define INT_BASE		0x13026500
 #define RSW_INT			(INT_BASE+0x00) //0x2
 #define DI_INT			(INT_BASE+0x20) //0x4
-#define SI_INT			(INT_BASE+0x40) //0x8
 #define EXI_INT			(INT_BASE+0x60) //0x10
 
 #define STREAMING		0x13026580
@@ -184,40 +180,11 @@ enum Gameregion
 	REGION_EXPORT,
 };
 
-enum
-{
-	TRI_NONE = 0,
-	TRI_GP1,
-	TRI_GP2,
-	TRI_AX,
-	TRI_VS3,
-	TRI_VS4,
-	TRI_YAK,
-	TRI_SB,
-} TRIGames;
-
 typedef struct
 {
 	u32 data;
 	u32 len;
 } vector;
-
-typedef struct PADStatus
-{
-    u16 button;                 // 00 Or-ed PAD_BUTTON_* bits
-    s8  stickX;                 // 02 -128 <= stickX       <= 127
-    s8  stickY;                 // 03 -128 <= stickY       <= 127
-
-    s8  substickX;              // 04 -128 <= substickX    <= 127
-    s8  substickY;              // 05 -128 <= substickY    <= 127
-    u8  triggerLeft;            // 06   0 <= triggerLeft  <= 255
-    u8  triggerRight;           // 07   0 <= triggerRight <= 255
-
-    u8  analogA;                // 08   0 <= analogA      <= 255
-    u8  analogB;                // 09   0 <= analogB      <= 255
-    s8  err;                    // 10 one of PAD_ERR_* number
-	s8  padding;                // 11 unused
-} PADStatus;
 
 #define PAD_BUTTON_LEFT         0x0001
 #define PAD_BUTTON_RIGHT        0x0002
@@ -231,7 +198,6 @@ typedef struct PADStatus
 #define PAD_BUTTON_B            0x0200
 #define PAD_BUTTON_X            0x0400
 #define PAD_BUTTON_Y            0x0800
-#define PAD_BUTTON_MENU         0x1000
 #define PAD_BUTTON_START        0x1000
 
 static inline u16 read16(u32 addr)
@@ -341,32 +307,11 @@ static inline void sync_after_write_align32(void *Buf, u32 Len)
 
 #define RESET_STATUS 0x13003420
 
-/**
- * Is this system a Wii U?
- * @return True if this is Wii U; false if not.
- */
-extern bool isWiiVC;
-static inline bool IsWiiU(void)
-{
-	return ((read16(0xD8005A0) == 0xCAFE) || isWiiVC);
-}
-static inline bool IsWiiUFastCPU(void)
-{
-	return ((read16(0xD8005A0) == 0xCAFE) && ((read32(0xD8005B0) & 0x20) == 0));
-}
-
-/* Writing to this reboots the WiiU */
-static inline void WiiUResetToMenu(void)
-{
-	write32( 0x0D8005E0, 0xFFFFFFFE );
-}
-
-extern u32 virtentry;
 static inline u32 do_thread_create(void *entry, u32 *stackaddr, u32 stacksize, u32 prio)
 {
 	*(vu32*)0x12FFFFE0 = (u32)entry; //physical entry
 	sync_after_write((void*)0x12FFFFE0, 0x20);
-	return thread_create((u32(*)(void*))virtentry, NULL, stackaddr, stacksize / sizeof(u32), prio, 1);
+	return thread_create((u32(*)(void*))0x20109740, NULL, stackaddr, stacksize / sizeof(u32), prio, 1);
 }
 
 #endif

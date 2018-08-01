@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Loader) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Loader) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -28,7 +28,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "global.h"
 
 void CheckForGecko(void);
-void closeLog(void);
 
 #ifdef DEBUG
 // FIXME: Commit this first, and find other
@@ -37,7 +36,6 @@ void closeLog(void);
 /**
  * Log a debug message.
  * - Wii: Logs to USB Gecko.
- * - Wii U: Logs to a file on the root device.
  * @param str printf-style format string.
  * @param ... printf arguments.
  * @return vsnprintf() return value; 0 if nothing was written; or -1 on error.

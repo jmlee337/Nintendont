@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Loader) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Loader) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -27,17 +27,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define	EXI_BASE	0xCD006800
 #define EXI			0xCD006814
 
-#if 0
-static bool wiiu_done = false;
-#endif
-// FIXME: Re-enable Wii U file logging after testing FatFs.
-//static FILE *nl_log = NULL;
 static u32 GeckoFound = 0;
 
 void CheckForGecko( void )
 {
-	if( !IsWiiU() )
-		GeckoFound = usb_isgeckoalive( 1 );
+	GeckoFound = usb_isgeckoalive( 1 );
 }
 
 void EXISendByte( char byte )
@@ -63,7 +57,6 @@ loop:
 /**
  * Log a debug message.
  * - Wii: Logs to USB Gecko.
- * - Wii U: Logs to a file on the root device.
  * @param str printf-style format string.
  * @param ... printf arguments.
  * @return vsnprintf() return value; 0 if nothing was written; or -1 on error.
@@ -71,70 +64,25 @@ loop:
 int gprintf( const char *str, ... )
 {
 	int ret = 0;
-
-	if( IsWiiU() )
+	if (!GeckoFound)
 	{
-		// FIXME: Re-enable Wii U file logging after testing FatFs.
-#if 0
-		if(wiiu_done == true)
-			return 0;
+		// No USB Gecko found
+		return 0;
+	}
 
-		// We're running on a vWii, log the results to a file
+	char astr[4096];
+	va_list ap;
+	va_start(ap, str);
+	ret = vsnprintf(astr, sizeof(astr), str, ap);
+	va_end(ap);
 
-		// Open the file if it hasn't been already
-		if (nl_log == NULL)
-		{
-			char LogPath[20];
-			snprintf(LogPath, "%s:/nloader.log", GetRootDevice());
-			nl_log = fopen(LogPath, "w");
-		}
-		if (nl_log != NULL)
-		{
-			va_list ap;
-			va_start(ap, str);
-			ret = vfprintf(nl_log, str, ap); // No need for a buffer, goes straight to the file
-			// Flushes the stream so we don't have to wait for the file to close or it to fill
-			fflush(nl_log);
-			va_end(ap);
-		} else {
-			// Couldn't open the file
-			return -1;
-		}
-#endif
-	} else {
-		// We're running on a real Wii, send the results to a USB Gecko
-		if (!GeckoFound)
-		{
-			// No USB Gecko found
-			return 0;
-		}
-
-		char astr[4096];
-		va_list ap;
-		va_start(ap, str);
-		ret = vsnprintf(astr, sizeof(astr), str, ap);
-		va_end(ap);
-
-		// Send the string.
-		const char *p = astr;
-		for (; *p != '\0'; p++)
-		{
-			EXISendByte(*p);
-		}
+	// Send the string.
+	const char *p = astr;
+	for (; *p != '\0'; p++)
+	{
+		EXISendByte(*p);
 	}
 
 	// Everything went okay
 	return ret;
-}
-
-void closeLog(void)
-{
-	// FIXME: Re-enable Wii U file logging after testing FatFs.
-#if 0
-	wiiu_done = true;
-
-	if(nl_log != NULL)
-		fclose(nl_log);
-	nl_log = NULL;
-#endif
 }

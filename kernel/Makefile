@@ -32,16 +32,13 @@ ASFLAGS	:= -mbig-endian -mcpu=arm926ej-s
 LDFLAGS	:= -nostartfiles -nodefaultlibs -mbig-endian -Wl,--gc-sections,-T,kernel.ld,-Map,kernel.map -n
 
 TARGET	:= kernel.elf
-OBJECTS	:= start.o common.o alloc.o GCAM.o JVSIO.o JVSIOMessage.o FST.o DI.o RealDI.o \
-	   Patch.o PatchTimers.o TRI.o PatchWidescreen.o ISO.o Stream.o adp.o \
-	   EXI.o SRAM.o GCNCard.o SI.o HID.o diskio.o Config.o utils_asm.o ES.o NAND.o \
+OBJECTS	:= start.o common.o alloc.o FST.o DI.o RealDI.o \
+	   Patch.o PatchTimers.o PatchWidescreen.o ISO.o Stream.o adp.o \
+	   EXI.o SRAM.o GCNCard.o diskio.o Config.o utils_asm.o ES.o NAND.o \
 	   main.o syscalls.o ReadSpeed.o vsprintf.o string.o prs.o \
-	   SDI.o usb.o usbstorage.o wdvd.o
+	   SDI.o usb.o usbstorage.o
 LIBS	:= ../fatfs/libfatfs-arm.a be/libc.a be/libgcc.a
 ZIPFILE	:= ../loader/data/kernel.zip
-
-# Bluetooth stack
-OBJECTS	+= lwbt/bte.o lwbt/btmemb.o lwbt/btmemr.o lwbt/btpbuf.o lwbt/hci.o lwbt/l2cap.o lwbt/physbusif.o BT.o
 
 .PHONY: FORCE
 
@@ -69,4 +66,4 @@ $(TARGET): kernel.ld $(OBJECTS)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c -MMD -MP -MF $(@:.o=.d) -o $@ $<
 
 clean:
-	-$(RM) -f $(ZIPFILE) *.elf *.o *.bin *.d *.map lwbt/*.d lwbt/*.o option/*.d option/*.o
+	-$(RM) -f $(ZIPFILE) *.elf *.o *.bin *.d *.map option/*.d option/*.o

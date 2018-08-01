@@ -335,8 +335,7 @@ int dbgprintf( const char *fmt, ...)
 		}
 	}
 
-	if( !IsWiiU() ) // usbgecko?
-		svc_write(buffer);
+	svc_write(buffer);
 
 	//heap_free( 0, buffer );
 

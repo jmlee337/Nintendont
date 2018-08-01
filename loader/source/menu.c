@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Loader) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Loader) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -89,10 +89,6 @@ inline u32 SettingY(u32 row)
 void SetShutdown(void)
 {
 	Shutdown = 1;
-}
-void HandleWiiMoteEvent(s32 chan)
-{
-	SetShutdown();
 }
 void HandleSTMEvent(u32 event)
 {
@@ -307,28 +303,14 @@ static DevState LoadGameList(gameinfo *gi, u32 sz, u32 *pGameCount)
 	u8 buf[0x100];			// Disc header.
 	int gamecount = 0;		// Current game count.
 
-	if( isWiiVC )
-	{
-		// Pseudo game for booting a GameCube disc on Wii VC.
-		gi[0].ID[0] = 'D',gi[0].ID[1] = 'I',gi[0].ID[2] = 'S';
-		gi[0].ID[3] = 'C',gi[0].ID[4] = '0',gi[0].ID[5] = '1';
-		gi[0].Name = "Boot included GC Disc";
-		gi[0].Revision = 0;
-		gi[0].Flags = 0;
-		gi[0].Path = strdup("di:di");
-		gamecount++;
-	}
-	else if( !IsWiiU() )
-	{
-		// Pseudo game for booting a GameCube disc on Wii.
-		gi[0].ID[0] = 'D',gi[0].ID[1] = 'I',gi[0].ID[2] = 'S';
-		gi[0].ID[3] = 'C',gi[0].ID[4] = '0',gi[0].ID[5] = '1';
-		gi[0].Name = "Boot GC Disc in Drive";
-		gi[0].Revision = 0;
-		gi[0].Flags = 0;
-		gi[0].Path = strdup("di:di");
-		gamecount++;
-	}
+	// Pseudo game for booting a GameCube disc on Wii.
+	gi[0].ID[0] = 'D',gi[0].ID[1] = 'I',gi[0].ID[2] = 'S';
+	gi[0].ID[3] = 'C',gi[0].ID[4] = '0',gi[0].ID[5] = '1';
+	gi[0].Name = "Boot GC Disc in Drive";
+	gi[0].Revision = 0;
+	gi[0].Flags = 0;
+	gi[0].Path = strdup("di:di");
+	gamecount++;
 
 	DIR pdir;
 	snprintf(filename, sizeof(filename), "%s:/games", GetRootDevice());
@@ -504,9 +486,7 @@ static DevState LoadGameList(gameinfo *gi, u32 sz, u32 *pGameCount)
 	// Sort the list alphabetically.
 	// On Wii, the pseudo-entry for GameCube discs is always
 	// kept at the top.
-	if( gamecount && IsWiiU() && !isWiiVC )
-		qsort(gi, gamecount, sizeof(gameinfo), compare_names);
-	else if( gamecount > 1 )
+	if( gamecount > 1 )
 		qsort(&gi[1], gamecount-1, sizeof(gameinfo), compare_names);
 
 	// Save the game count.
@@ -785,17 +765,12 @@ static bool UpdateGameSelectMenu(MenuCtx *ctx)
 		{
 			ctx->games.canBeBooted = true;
 			// Can we show information for the selected title?
-			if (IsWiiU() && !isWiiVC) {
-				// Can show information for all games on WiiU
-				ctx->games.canShowInfo = true;
+			if ((ctx->games.scrollX + ctx->games.posX) == 0) {
+				// Cannot show information for DISC01 on Wii.
+				ctx->games.canShowInfo = false;
 			} else {
-				if ((ctx->games.scrollX + ctx->games.posX) == 0) {
-					// Cannot show information for DISC01 on Wii and Wii VC.
-					ctx->games.canShowInfo = false;
-				} else {
-					// Can show information for all other games.
-					ctx->games.canShowInfo = true;
-				}
+				// Can show information for all other games.
+				ctx->games.canShowInfo = true;
 			}
 
 			if (ctx->games.canShowInfo) {
@@ -873,8 +848,7 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 					"Patch games to always use 480p",
 					"(progressive scan) output.",
 					"",
-					"Requires component cables, or",
-					"an HDMI cable on Wii U.",
+					"Requires component cables.",
 					NULL
 				};
 				return desc_force_prog;
@@ -903,23 +877,6 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 			case NIN_CFG_BIT_OSREPORT:
 				break;
 
-			case NIN_CFG_BIT_USB: {	// WiiU Widescreen
-				static const char *desc_wiiu_widescreen[] = {
-					"On Wii U, Nintendont sets the",
-					"display to 4:3, which results",
-					"in bars on the sides of the",
-					"screen. If playing a game that",
-					"supports widescreen, enable",
-					"this option to set the display",
-					"back to 16:9.",
-					"",
-					"This option has no effect on",
-					"original Wii systems.",
-					NULL
-				};
-				return desc_wiiu_widescreen;
-			}
-
 			case NIN_CFG_BIT_LED: {
 				static const char *desc_led[] = {
 					"Use the drive slot LED as a",
@@ -928,10 +885,6 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 					"The LED will be turned on",
 					"when reading from or writing",
 					"to the storage device.",
-					"",
-					"This option has no effect on",
-					"Wii U, since the Wii U does",
-					"not have a drive slot LED.",
 					NULL
 				};
 				return desc_led;
@@ -939,24 +892,6 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 
 			case NIN_CFG_BIT_LOG:
 				break;
-
-			case NIN_SETTINGS_MAX_PADS: {
-				static const char *desc_max_pads[] = {
-					"Set the maximum number of",
-					"native GameCube controller",
-					"ports to use.",
-					"",
-					"This should usually be kept",
-					"at 4 to enable all ports",
-					"",
-					"This option has no effect on",
-					"Wii U and Wii Family Edition",
-					"systems, since they don't",
-					"have native controller ports.",
-					NULL
-				};
-				return desc_max_pads;
-			}
 
 			case NIN_SETTINGS_LANGUAGE: {
 				static const char *desc_language[] = {
@@ -1004,25 +939,6 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 				return desc_memcard_multi;
 			}
 
-			case NIN_SETTINGS_NATIVE_SI: {
-				static const char *desc_native_si[] = {
-					"Native Control allows use of",
-					"GBA link cables on original",
-					"Wii systems.",
-					"",
-					"NOTE: Enabling Native Control",
-					"will disable Bluetooth and",
-					"USB HID controllers.",
-					"",
-					"This option is not available",
-					"on Wii U, since it does not",
-					"have built-in GameCube",
-					"controller ports.",
-					NULL
-				};
-				return desc_native_si;
-			}
-
 			default:
 				break;
 		}
@@ -1030,32 +946,6 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 		switch (ctx->settings.posX)
 		{
 			case 3: {
-				// Triforce Arcade Mode
-				static const char *desc_tri_arcade[] = {
-					"Arcade Mode re-enables the",
-					"coin slot functionality of",
-					"Triforce games.",
-					"",
-					"To insert a coin, move the",
-					"C stick in any direction.",
-					NULL
-				};
-				return desc_tri_arcade;
-			}
-
-			case 4: {
-				// Wiimote CC Rumble
-				static const char *desc_cc_rumble[] = {
-					"Enable rumble on Wii Remotes",
-					"when using the Wii Classic",
-					"Controller or Wii Classic",
-					"Controller Pro.",
-					NULL
-				};
-				return desc_cc_rumble;
-			}
-
-			case 5: {
 				// Skip IPL
 				static const char *desc_skip_ipl[] = {
 					"Skip loading the GameCube",
@@ -1066,7 +956,7 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 				return desc_skip_ipl;
 			}
 
-			case 6: {
+			case 4: {
 				// Melee Codes
 				static const char *desc_melee_codes[] = {
 					"Enable certain codesets for",
@@ -1141,7 +1031,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 
 		// Check for wraparound.
 		if ((ctx->settings.settingPart == 0 && ctx->settings.posX >= NIN_SETTINGS_LAST) ||
-		    (ctx->settings.settingPart == 1 && ctx->settings.posX >= 7))
+		    (ctx->settings.settingPart == 1 && ctx->settings.posX >= 5))
 		{
 			ctx->settings.posX = 0;
 			ctx->settings.settingPart ^= 1;
@@ -1168,7 +1058,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 			if (ctx->settings.settingPart == 0) {
 				ctx->settings.posX = NIN_SETTINGS_LAST - 1;
 			} else {
-				ctx->settings.posX = 6;
+				ctx->settings.posX = 4;
 			}
 		}
 
@@ -1280,10 +1170,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 			if (ctx->settings.posX < NIN_CFG_BIT_LAST)
 			{
 				// Standard boolean setting.
-				if (ctx->settings.posX == NIN_CFG_BIT_USB) {
-					// USB option is replaced with Wii U widescreen.
-					ncfg->Config ^= NIN_CFG_WIIU_WIDE;
-				} else {
+				if (ctx->settings.posX != NIN_CFG_BIT_USB) {
 					ncfg->Config ^= (1 << ctx->settings.posX);
 				}
 			}
@@ -1367,27 +1254,13 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 					break;
 
 				case 3:
-					// Triforce Arcade Mode.
-					ctx->saveSettings = true;
-					ncfg->Config ^= (NIN_CFG_ARCADE_MODE);
-					ctx->redraw = true;
-					break;
-
-				case 4:
-					// Wiimote CC Rumble
-					ctx->saveSettings = true;
-					ncfg->Config ^= (NIN_CFG_CC_RUMBLE);
-					ctx->redraw = true;
-					break;
-
-				case 5:
 					// Skip IPL
 					ctx->saveSettings = true;
 					ncfg->Config ^= (NIN_CFG_SKIP_IPL);
 					ctx->redraw = true;
 					break;
 
-				case 6:
+				case 4:
 					ctx->saveSettings = true;
 					ncfg->MeleeCodes++;
 					if (ncfg->MeleeCodes > 2)
@@ -1411,32 +1284,21 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 		u32 ListLoopIndex = 0;
 		for (; ListLoopIndex < NIN_CFG_BIT_LAST; ListLoopIndex++)
 		{
-			if (ListLoopIndex == NIN_CFG_BIT_USB) {
-				// USB option is replaced with Wii U widescreen.
-				PrintFormat(MENU_SIZE, (IsWiiU() ? BLACK : DARK_GRAY), MENU_POS_X+50, SettingY(ListLoopIndex),
-					    "%-18s:%s", OptionStrings[ListLoopIndex], (ncfg->Config & (NIN_CFG_WIIU_WIDE)) ? "On " : "Off");
-			} else {
-				u32 item_color = BLACK;
-				if (ListLoopIndex == NIN_CFG_BIT_DEBUGGER ||
-					ListLoopIndex == NIN_CFG_BIT_DEBUGWAIT ||
-					ListLoopIndex == NIN_CFG_BIT_CHEAT_PATH ||
-					ListLoopIndex == NIN_CFG_BIT_REMLIMIT ||
-					ListLoopIndex == NIN_CFG_BIT_OSREPORT ||
-					ListLoopIndex == NIN_CFG_BIT_LOG ||
-					(IsWiiU() && ListLoopIndex == NIN_CFG_BIT_LED))
-				{
-					item_color = LIGHT_GRAY;
-				}
-				PrintFormat(MENU_SIZE, item_color, MENU_POS_X+50, SettingY(ListLoopIndex),
-					    "%-18s:%s", OptionStrings[ListLoopIndex], (ncfg->Config & (1 << ListLoopIndex)) ? "On " : "Off" );
+			if (ListLoopIndex == NIN_CFG_BIT_USB)
+				continue;
+			u32 item_color = BLACK;
+			if (ListLoopIndex == NIN_CFG_BIT_DEBUGGER ||
+				ListLoopIndex == NIN_CFG_BIT_DEBUGWAIT ||
+				ListLoopIndex == NIN_CFG_BIT_CHEAT_PATH ||
+				ListLoopIndex == NIN_CFG_BIT_REMLIMIT ||
+				ListLoopIndex == NIN_CFG_BIT_OSREPORT ||
+				ListLoopIndex == NIN_CFG_BIT_LOG)
+			{
+				item_color = LIGHT_GRAY;
 			}
+			PrintFormat(MENU_SIZE, item_color, MENU_POS_X+50, SettingY(ListLoopIndex),
+				    "%-18s:%s", OptionStrings[ListLoopIndex], (ncfg->Config & (1 << ListLoopIndex)) ? "On " : "Off" );
 		}
-
-		// Maximum number of emulated controllers.
-		// don't allow Native Control settings to be changed.
-		PrintFormat(MENU_SIZE, TEAL, MENU_POS_X+50, SettingY(ListLoopIndex),
-			    "%-18s:%d", OptionStrings[ListLoopIndex], (ncfg->MaxPads));
-		ListLoopIndex++;
 
 		// Language setting.
 		u32 LanIndex = ncfg->Language;
@@ -1509,13 +1371,6 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 		}
 		ListLoopIndex+=2;
 
-		// Native controllers. (Required for GBA link; disables Bluetooth and USB HID.)
-		// don't allow Native Control settings to be changed.
-		PrintFormat(MENU_SIZE, TEAL, MENU_POS_X + 50, SettingY(ListLoopIndex),
-			    "%-18s:%-4s", OptionStrings[ListLoopIndex],
-			    (ncfg->Config & (NIN_CFG_NATIVE_SI)) ? "On " : "Off");
-		ListLoopIndex++;
-
 		/** Right column **/
 		ListLoopIndex = 0; //reset on other side
 
@@ -1546,16 +1401,6 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 			    "%-18s:%-4s", "Patch PAL50", (ncfg->VideoMode & (NIN_VID_PATCH_PAL50)) ? "On " : "Off");
 		ListLoopIndex++;
 
-		// Triforce Arcade Mode.
-		PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X + 320, SettingY(ListLoopIndex),
-			    "%-18s:%-4s", "TRI Arcade Mode", (ncfg->Config & (NIN_CFG_ARCADE_MODE)) ? "On " : "Off");
-		ListLoopIndex++;
-
-		// Wiimote CC Rumble
-		PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X + 320, SettingY(ListLoopIndex),
-			    "%-18s:%-4s", "Wiimote CC Rumble", (ncfg->Config & (NIN_CFG_CC_RUMBLE)) ? "On " : "Off");
-		ListLoopIndex++;
-
 		// Skip GameCube IPL
 		PrintFormat(MENU_SIZE, LIGHT_GRAY, MENU_POS_X + 320, SettingY(ListLoopIndex),
 			    "%-18s:%-4s", "Skip IPL", (ncfg->Config & (NIN_CFG_SKIP_IPL)) ? "Yes" : "No ");
@@ -1568,14 +1413,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 
 		// Draw the cursor.
 		if (ctx->settings.settingPart == 0) {
-			u32 cursor_color = BLACK;
-			if (!IsWiiU() && ctx->settings.posX == NIN_CFG_BIT_USB)
-			{
-				// Setting is not usable on this platform.
-				// Gray out the cursor, too.
-				cursor_color = DARK_GRAY;
-			}
-			PrintFormat(MENU_SIZE, cursor_color, MENU_POS_X + 30, SettingY(ctx->settings.posX), ARROW_RIGHT);
+			PrintFormat(MENU_SIZE, BLACK, MENU_POS_X + 30, SettingY(ctx->settings.posX), ARROW_RIGHT);
 		} else {
 			PrintFormat(MENU_SIZE, BLACK, MENU_POS_X + 300, SettingY(ctx->settings.posX), ARROW_RIGHT);
 		}
@@ -1586,7 +1424,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 		const char *const *desc = GetSettingsDescription(ctx);
 		if (desc != NULL)
 		{
-			int line_num = 8;
+			int line_num = 6;
 			do {
 				if (**desc != 0)
 				{
@@ -1902,33 +1740,26 @@ void ShowMessageScreenAndExit(const char *msg, int ret)
  */
 void PrintInfo(void)
 {
-	const char *consoleType = (isWiiVC ? (IsWiiUFastCPU() ? "WiiVC 5x CPU" : "Wii VC") : (IsWiiUFastCPU() ? "WiiU 5x CPU" : (IsWiiU() ? "Wii U" : "Wii")));
+	const char *consoleType = "Wii";
 #ifdef NIN_SPECIAL_VERSION
 	// "Special" version with customizations. (Not mainline!)
-	PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*0, "Nintendont Loader v%u.%u" NIN_SPECIAL_VERSION " (%s)",
+	PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*0, "Nintendont for Melee v%u.%u" NIN_SPECIAL_VERSION " (%s)",
 		    NIN_VERSION>>16, NIN_VERSION&0xFFFF, consoleType);
 #else
-	PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*0, "Nintendont Loader v%u.%u (%s)",
+	PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*0, "Nintendont for Melee v%u.%u (%s)",
 		    NIN_VERSION>>16, NIN_VERSION&0xFFFF, consoleType);
 #endif
 	PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*1, "Built   : " __DATE__ " " __TIME__);
 	PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*2, "Firmware: %u.%u.%u",
 		    *(vu16*)0x80003140, *(vu8*)0x80003142, *(vu8*)0x80003143);
-	if (IsWiiU())
-	{
-		PrintFormat(DEFAULT_SIZE, RED, MENU_POS_X, MENU_POS_Y + 20*3, "Wii VC does not support Native Control.");
-	}
-	else if (ncfg->Magicbytes != 0x01070CF6)
+	if (ncfg->Magicbytes != 0x01070CF6)
 	{
 		PrintFormat(DEFAULT_SIZE, PURPLE, MENU_POS_X, MENU_POS_Y + 20*3, "Loading settings...");
 	}
-	else if (ncfg->Config & (NIN_CFG_NATIVE_SI))
-	{
-		PrintFormat(DEFAULT_SIZE, TEAL, MENU_POS_X, MENU_POS_Y + 20*3, "Native Control is ON!");
-	}
 	else
 	{
-		PrintFormat(DEFAULT_SIZE, RED, MENU_POS_X, MENU_POS_Y + 20*3, "Contact @jmlee337, Native Control disabled...somehow.");
+		PrintFormat(DEFAULT_SIZE, TEAL, MENU_POS_X, MENU_POS_Y + 20*3,
+				"Native Control + Melee Codes: %s", MeleeCodesStrings[ncfg->MeleeCodes]);
 	}
 }
 
@@ -2037,18 +1868,9 @@ void PrintLoadKernelError(LoadKernelError_t iosErr, int err)
 		case LKERR_ES_GetStoredTMDSize:
 			PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*5, "ES_GetStoredTMDSize() returned %d.", err);
 			PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*7, "This usually means IOS58 is not installed.");
-			if (IsWiiU())
-			{
-				// No IOS58 on Wii U should never happen...
-				PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*9, "WARNING: On Wii U, a missing IOS58 may indicate");
-				PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*10, "something is seriously wrong with the vWii setup.");
-			}
-			else
-			{
-				// TODO: Check if we're using System 4.3.
-				PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*9, "Please update to Wii System 4.3 and try running");
-				PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*10, "Nintendont again.");
-			}
+			// TODO: Check if we're using System 4.3.
+			PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*9, "Please update to Wii System 4.3 and try running");
+			PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*10, "Nintendont again.");
 			break;
 
 		case LKERR_TMD_malloc:
