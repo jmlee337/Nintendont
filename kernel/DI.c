@@ -126,21 +126,6 @@ void DiscReadSync(u32 Buffer, u32 Offset, u32 Length, u32 Mode)
 	DIFinishAsync();
 }
 
-//ISO Cache is disabled while SegaBoot runs
-static u8 *const SegaBoot = (u8*)0x12A80000;
-void ReadSegaBoot(u32 Buffer, u32 Offset, u32 Length)
-{
-	if(Offset > 0x100000) //set invalid
-		memset32((void*)Buffer, 0, Length);
-	else //part of actual ipl
-	{
-		sync_before_read(SegaBoot+Offset, Length);
-		memcpy((void*)Buffer, SegaBoot+Offset, Length);
-		DoPatches((void*)Buffer, Length, Offset);
-	}
-	sync_after_write((void*)Buffer, Length);
-}
-
 void DIinit( bool FirstTime )
 {
 	//This debug statement seems to cause crashing.

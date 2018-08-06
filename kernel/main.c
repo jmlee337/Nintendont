@@ -386,18 +386,7 @@ int _main( int argc, char *argv[] )
 			DIFinishAsync();
 			break;
 		}
-		if (reset_status == 0x3DEA)
-		{
-			if (Reset == 0)
-			{
-				dbgprintf("Fake Reset IRQ\r\n");
-				write32( RSW_INT, 0x2 ); // Reset irq
-				sync_after_write( (void*)RSW_INT, 0x20 );
-				write32(HW_IPC_ARMCTRL, 8); //throw irq
-				Reset = 1;
-			}
-		}
-		else if (Reset == 1)
+		if (Reset == 1)
 		{
 			write32( RSW_INT, 0x10000 ); // send pressed
 			sync_after_write( (void*)RSW_INT, 0x20 );
@@ -421,7 +410,7 @@ int _main( int argc, char *argv[] )
 			SetIPL();
 			PatchGame();
 		}
-		if(reset_status == 0x7DEA || (read32(HW_GPIO_IN) & GPIO_POWER))
+		if(read32(HW_GPIO_IN) & GPIO_POWER)
 		{
 			DIFinishAsync();
 			Shutdown();

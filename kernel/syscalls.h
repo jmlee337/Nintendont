@@ -16,8 +16,8 @@ u32 syscall_04( void );
 #define thread_continue( ThreadID ) syscall_05( ThreadID )
 s32 syscall_05( s32 ThreadID );
 
-#define thread_yield() syscall_03()
-u32 syscall_03(void);
+#define thread_yield() syscall_07()
+u32 syscall_07(void);
 
 #define thread_set_priority(a,b) syscall_09(a,b)
 int syscall_09( int ThreadID, int prio);
