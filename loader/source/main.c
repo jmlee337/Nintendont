@@ -20,7 +20,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 #include <gccore.h>
 #include <sys/param.h>
-#include <ogc/lwp_watchdog.h>
 #include <ogc/lwp_threads.h>
 #include <di/di.h>
 #include <unistd.h>
@@ -526,9 +525,6 @@ int main(int argc, char **argv)
 			}
 		}
 	}
-
-	//Meh, doesnt do anything anymore anyways
-	//STM_RegisterEventHandler(HandleSTMEvent);
 
 	Initialise(argsboot);
 

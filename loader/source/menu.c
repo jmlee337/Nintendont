@@ -31,7 +31,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <ogc/stm.h>
 #include <ogc/consol.h>
 #include <ogc/system.h>
 //#include <fat.h>
@@ -89,20 +88,6 @@ inline u32 SettingY(u32 row)
 void SetShutdown(void)
 {
 	Shutdown = 1;
-}
-void HandleSTMEvent(u32 event)
-{
-	*(vu32*)(0xCC003024) = 1;
-
-	switch(event)
-	{
-		default:
-		case STM_EVENT_RESET:
-			break;
-		case STM_EVENT_POWER:
-			SetShutdown();
-			break;
-	}
 }
 int compare_names(const void *a, const void *b)
 {
