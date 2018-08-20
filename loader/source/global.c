@@ -325,7 +325,7 @@ bool LoadNinCFG(void)
 {
 	bool ConfigLoaded = true;
 	FIL cfg;
-	if (f_open_char(&cfg, "/nincfg.bin", FA_READ|FA_OPEN_EXISTING) != FR_OK)
+	if (f_open_char(&cfg, "/ninmelee.cfg", FA_READ|FA_OPEN_EXISTING) != FR_OK)
 		return false;
 
 	// Read the configuration file into memory.

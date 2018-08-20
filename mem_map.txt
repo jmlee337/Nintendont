@@ -47,7 +47,7 @@ MEM2
 0x93003460=hid controller ini
 
 0x93003500-0x93003600=Triforce game settings
-0x93004000-0x93005000=nincfg
+0x93004000-0x93005000=nin_cfg
 
 0x93005000-0x930050E8=hid controller positions
 0x930050F0-0x93005170=hid packet (may be bigger device dependent)
