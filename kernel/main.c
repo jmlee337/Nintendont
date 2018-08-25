@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Kernel) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Kernel) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -25,16 +25,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "DI.h"
 #include "RealDI.h"
 #include "ES.h"
-#include "SI.h"
-#include "BT.h"
-#include "lwbt/bte.h"
 #include "Stream.h"
-#include "HID.h"
 #include "EXI.h"
 #include "GCNCard.h"
 #include "debug.h"
-#include "GCAM.h"
-#include "TRI.h"
 #include "Patch.h"
 
 #include "diskio.h"
@@ -54,20 +48,13 @@ static FATFS *fatfs = NULL;
 //this is just a single / as u16, easier to write in hex
 static const WCHAR fatDevName[2] = { 0x002F, 0x0000 };
 
-extern u32 SI_IRQ;
 extern bool DI_IRQ, EXI_IRQ;
 extern u32 WaitForRealDisc;
 extern struct ipcmessage DI_CallbackMsg;
 extern u32 DI_MessageQueue;
-extern vu32 DisableSIPatch;
 extern char __bss_start, __bss_end;
 extern char __di_stack_addr, __di_stack_size;
 
-u32 virtentry = 0;
-u32 drcAddress = 0;
-u32 drcAddressAligned = 0;
-bool isWiiVC = false;
-bool wiiVCInternal = false;
 int _main( int argc, char *argv[] )
 {
 	//BSS is in DATA section so IOS doesnt touch it, we need to manually clear it
@@ -75,36 +62,15 @@ int _main( int argc, char *argv[] )
 	memset32(&__bss_start, 0, &__bss_end - &__bss_start);
 	sync_after_write(&__bss_start, &__bss_end - &__bss_start);
 
-	//Important to do this as early as possible
-	if(read32(0x20109740) == 0xE59F1004)
-		virtentry = 0x20109740; //Address on Wii 
-	else if(read32(0x2010999C) == 0xE59F1004)
-		virtentry = 0x2010999C; //Address on WiiU
-
-	//Use libwiidrc values to detect Wii VC
-	sync_before_read((void*)0x12FFFFC0, 0x20);
-	isWiiVC = read32(0x12FFFFC0);
-	if(isWiiVC)
-	{
-		drcAddress = read32(0x12FFFFC4); //used in PADReadGC.c
-		drcAddressAligned = ALIGN_BACKWARD(drcAddress,0x20);
-	}
-
 	s32 ret = 0;
 	u32 DI_Thread = 0;
 
 	BootStatus(0, 0, 0);
 
-	if(!isWiiVC)
-	{
-		//Enable DVD Access
-		write32(HW_DIFLAGS, read32(HW_DIFLAGS) & ~DI_DISABLEDVD);
-	}
+	//Enable DVD Access
+	write32(HW_DIFLAGS, read32(HW_DIFLAGS) & ~DI_DISABLEDVD);
 
 	thread_set_priority( 0, 0x50 );
-
-	//Early HID for loader
-	HIDInit();
 
 	dbgprintf("Sending signal to loader\r\n");
 	BootStatus(1, 0, 0);
@@ -130,7 +96,6 @@ int _main( int argc, char *argv[] )
 			write32(RESET_STATUS, 0);
 			sync_after_write((void*)RESET_STATUS, 0x20);
 		}
-		HIDUpdateRegisters(1);
 		udelay(20);
 		cc_ahbMemFlush(1);
 	}
@@ -164,10 +129,8 @@ int _main( int argc, char *argv[] )
 	//Verification if we can read from disc
 	if(memcmp(ConfigGetGamePath(), "di", 3) == 0)
 	{
-		if(isWiiVC) //will be inited later
-			wiiVCInternal = true;
-		else //will shutdown on fail
-			RealDI_Init();
+		//will shutdown on fail
+		RealDI_Init();
 	}
 	BootStatus(3, 0, 0);
 	fatfs = (FATFS*)malloca( sizeof(FATFS), 32 );
@@ -241,13 +204,10 @@ int _main( int argc, char *argv[] )
 
 	BootStatus(10, s_size, s_cnt);
 
-	TRIInit();
-
 	EXIInit();
 
 	BootStatus(11, s_size, s_cnt);
 
-	SIInit();
 	StreamInit();
 
 	PatchInit();
@@ -262,7 +222,6 @@ int _main( int argc, char *argv[] )
 	sync_after_write((void*)0x1860, 0x20);
 #endif
 	u32 Now = read32(HW_TIMER);
-	u32 PADTimer = Now;
 	u32 DiscChangeTimer = Now;
 	u32 ResetTimer = Now;
 	u32 InterruptTimer = Now;
@@ -311,18 +270,6 @@ int _main( int argc, char *argv[] )
 			break;
 	}
 
-	// Set the Wii U widescreen setting.
-	u32 ori_widesetting = 0;
-	if (IsWiiU())
-	{
-		ori_widesetting = read32(0xd8006a0);
-		if( ConfigGetConfig(NIN_CFG_WIIU_WIDE) )
-			write32(0xd8006a0, 0x30000004);
-		else
-			write32(0xd8006a0, 0x30000002);
-		mask32(0xd8006a8, 0, 2);
-	}
-
 	while (1)
 	{
 		_ahbMemFlush(0);
@@ -339,8 +286,7 @@ int _main( int argc, char *argv[] )
 		if(TimerDiffTicks(InterruptTimer) > 15820) //about 120 times a second
 		{
 			sync_before_read((void*)INT_BASE, 0x80);
-			if((read32(RSW_INT) & 2) || (read32(DI_INT) & 4) || 
-				(read32(SI_INT) & 8) || (read32(EXI_INT) & 0x10))
+			if((read32(RSW_INT) & 2) || (read32(DI_INT) & 4) || (read32(EXI_INT) & 0x10))
 				write32(HW_IPC_ARMCTRL, 8); //throw irq
 			InterruptTimer = read32(HW_TIMER);
 		}
@@ -351,14 +297,6 @@ int _main( int argc, char *argv[] )
 				EXIInterrupt();
 		}
 		#endif
-		if (SI_IRQ != 0)
-		{
-			if ((TimerDiffTicks(PADTimer) > 7910) || (SI_IRQ & 0x2))	// about 240 times a second
-			{
-				SIInterrupt();
-				PADTimer = read32(HW_TIMER);
-			}
-		}
 		if(DI_IRQ == true)
 		{
 			if(DiscCheckAsync())
@@ -432,10 +370,6 @@ int _main( int argc, char *argv[] )
 		DIUpdateRegisters();
 		#ifdef PATCHALL
 		EXIUpdateRegistersNEW();
-		GCAMUpdateRegisters();
-		BTUpdateRegisters();
-		HIDUpdateRegisters(0);
-		if(DisableSIPatch == 0) SIUpdateRegisters();
 		#endif
 		StreamUpdateRegisters();
 		CheckOSReport();
@@ -452,18 +386,7 @@ int _main( int argc, char *argv[] )
 			DIFinishAsync();
 			break;
 		}
-		if (reset_status == 0x3DEA)
-		{
-			if (Reset == 0)
-			{
-				dbgprintf("Fake Reset IRQ\r\n");
-				write32( RSW_INT, 0x2 ); // Reset irq
-				sync_after_write( (void*)RSW_INT, 0x20 );
-				write32(HW_IPC_ARMCTRL, 8); //throw irq
-				Reset = 1;
-			}
-		}
-		else if (Reset == 1)
+		if (Reset == 1)
 		{
 			write32( RSW_INT, 0x10000 ); // send pressed
 			sync_after_write( (void*)RSW_INT, 0x20 );
@@ -487,18 +410,9 @@ int _main( int argc, char *argv[] )
 			SetIPL();
 			PatchGame();
 		}
-		if(reset_status == 0x6DEA)
-		{
-			SetIPL_TRI();
-			write32(RESET_STATUS, 0);
-			sync_after_write((void*)RESET_STATUS, 0x20);
-		}
-		if(reset_status == 0x7DEA || (read32(HW_GPIO_IN) & GPIO_POWER))
+		if(read32(HW_GPIO_IN) & GPIO_POWER)
 		{
 			DIFinishAsync();
-			#ifdef PATCHALL
-			BTE_Shutdown();
-			#endif
 			Shutdown();
 		}
 		#ifdef USE_OSREPORTDM
@@ -521,7 +435,6 @@ int _main( int argc, char *argv[] )
 		#endif
 		cc_ahbMemFlush(1);
 	}
-	HIDClose();
 	IOS_Close(DI_Handle); //close game
 	thread_cancel(DI_Thread, 0);
 	DIUnregister();
@@ -531,10 +444,6 @@ int _main( int argc, char *argv[] )
 
 	if (ConfigGetConfig(NIN_CFG_LOG))
 		closeLog();
-
-#ifdef PATCHALL
-	BTE_Shutdown();
-#endif
 
 	//unmount FAT device
 	f_mount(NULL, fatDevName, 1);
@@ -552,26 +461,14 @@ int _main( int argc, char *argv[] )
 //make sure we set that back to the original
 	write32(HW_PPCSPEED, ori_ppcspeed);
 
-	if (IsWiiU())
-	{
-		write32(0xd8006a0, ori_widesetting);
-		mask32(0xd8006a8, 0, 2);
-	}
 WaitForExit:
 	/* Allow all IOS IRQs again */
 	write32(HW_IPC_ARMCTRL, 0x36);
-	/* Wii VC is unable to cleanly use ES */
-	if(isWiiVC)
-	{
-		dbgprintf("Force reboot into WiiU Menu\n");
-		WiiUResetToMenu();
-	}
-	else
-	{
-		dbgprintf("Kernel done, waiting for IOS Reload\n");
-		write32(RESET_STATUS, 0);
-		sync_after_write((void*)RESET_STATUS, 0x20);
-	}
+
+	dbgprintf("Kernel done, waiting for IOS Reload\n");
+	write32(RESET_STATUS, 0);
+	sync_after_write((void*)RESET_STATUS, 0x20);
+
 	while(1) mdelay(100);
 	return 0;
 }

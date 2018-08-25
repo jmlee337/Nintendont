@@ -143,7 +143,6 @@ static const char stm_imm[] ALIGNED(32) = "/dev/stm/immediate";
 static u8 stm_in[0x20] ALIGNED(32);
 static u8 stm_out[0x20] ALIGNED(32);
 
-extern bool isWiiVC;
 void Shutdown( void )
 {
 	dbgprintf("Got Shutdown button call\n");
@@ -172,7 +171,7 @@ void Shutdown( void )
 #endif
 	/* Allow all IOS IRQs again */
 	write32(HW_IPC_ARMCTRL, 0x36);
-	/* Send STM Shutdown Ioctl (works on Wii, vWii and Wii VC) */
+	/* Send STM Shutdown Ioctl */
 	s32 stm_fd = IOS_Open(stm_imm, 0);
 	IOS_Ioctl(stm_fd,0x2003,stm_in,0x20,stm_out,0x20);
 	while(1) mdelay(100);

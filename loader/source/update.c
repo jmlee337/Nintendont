@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Loader) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Loader) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2014  JoostinOnline
 
@@ -56,7 +56,6 @@ typedef struct {
 typedef enum {
 	DOWNLOAD_NINTENDONT = 0,
 	DOWNLOAD_TITLES,
-	DOWNLOAD_CONTROLLERS,
 	DOWNLOAD_GAMECUBE_MD5,
 	DOWNLOAD_VERSION
 } DOWNLOADS;
@@ -64,7 +63,6 @@ typedef enum {
 static const downloads_t Downloads[] = {
 	{"https://raw.githubusercontent.com/jmlee337/Nintendont/master/loader/loader.dol", "Updating Nintendont", "boot.dol", 0x400000}, // 4MB
 	{"https://raw.githubusercontent.com/jmlee337/Nintendont/master/nintendont/titles.txt", "Updating titles.txt", "titles.txt", 0x80000}, // 512KB
-	{"https://raw.githubusercontent.com/jmlee337/Nintendont/master/controllerconfigs/controllers.zip", "Updating controllers.zip", "controllers.zip", 0x8000}, // 32KB
 	{"https://raw.githubusercontent.com/jmlee337/Nintendont/master/nintendont/gcn_md5.zip", "Updating gcn_md5.txt", "gcn_md5.zip", 0x20000}, // 128 KB
 	{"https://raw.githubusercontent.com/jmlee337/Nintendont/master/common/include/NintendontVersion.h", "Checking Latest Version", "", 0x400} // 1KB
 };
@@ -247,15 +245,7 @@ static s32 Download(DOWNLOADS download_number)  {
 	}
 
 	// Write the file to disk.
-	if (download_number == DOWNLOAD_CONTROLLERS) {
-		// controllers.zip needs to be decompressed to the
-		// active drive, since the kernel uses it.
-		ret = UnzipFile("/controllers", false, DOWNLOAD_CONTROLLERS, outbuf, filesize);
-		if (ret != 1) {
-			strcpy(errmsg, "Unzipping controllers.zip failed.");
-		}
-	}
-	else if (download_number == DOWNLOAD_GAMECUBE_MD5) {
+	if (download_number == DOWNLOAD_GAMECUBE_MD5) {
 		// gcn_md5.zip needs to be decompressed to the
 		// loader's drive, since it's used by the verifier.
 
@@ -325,7 +315,6 @@ void UpdateNintendont(void) {
 			// Update menu.
 			PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X + 50, MENU_POS_Y + 20*5, "Download Nintendont");
 			PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X + 50, MENU_POS_Y + 20*6, "Download titles.txt");
-			PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X + 50, MENU_POS_Y + 20*7, "Download controllers.zip");
 			PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X + 50, MENU_POS_Y + 20*8, "Download gcn_md5.txt");
 			PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X + 35, MENU_POS_Y + 20*(5+selected), ARROW_RIGHT);
 			redraw = false;

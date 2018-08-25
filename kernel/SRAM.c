@@ -96,9 +96,9 @@ void SRAM_Init(void)
 						ncfg->Language == NIN_LAN_SPANISH);
 
 		// Set the progressive scan flag if a component cable
-		// is connected (or HDMI on Wii U), unless we're loading
-		// BMX XXX, since that game won't even boot on a real
-		// GameCube if a component cable is connected.
+		// is connected unless we're loading BMX XXX, since
+		// that game won't even boot on a real GameCube if a
+		// component cable is connected.
 		if ((ncfg->GameID >> 8) != 0x474233 && !spPopWW &&
 			(ncfg->VideoMode & NIN_VID_PROG))
 		{

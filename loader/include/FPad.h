@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Loader) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Loader) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -22,22 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define __FPAD_H__
 
 #include "global.h"
-#include <wiiuse/wpad.h>
 #include <ogc/pad.h>
-
-struct BTPadCont {
-	u32 used;
-	s16 xAxisL;
-	s16 xAxisR;
-	s16 yAxisL;
-	s16 yAxisR;
-	u32 button;
-	u8 triggerL;
-	u8 triggerR;
-	s16 xAccel;
-	s16 yAccel;
-	s16 zAccel;
-} __attribute__((aligned(32)));
 
 void FPAD_Init( void );
 void FPAD_Update( void );

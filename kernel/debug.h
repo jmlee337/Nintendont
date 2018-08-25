@@ -4,7 +4,6 @@ all normal instances of dbgprintf.  Do not include debug.h in:
 DI.c
 ES.c
 FST.c
-HID.c
 Patch.c
 SDI.c
 or any header files.

@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Kernel) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Kernel) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -107,7 +107,6 @@ enum EXICommands
 	IPL_READ_FONT,
 };
 
-extern vu32 TRIGame;
 static u32 TRIBackupOffset= 0;
 static u32 EXI2IRQ			= 0;
 static u32 EXI2IRQStatus	= 0;
@@ -141,12 +140,9 @@ void EXIInit(void)
 		GCNCard_Load(0);
 
 		// Load Slot B.
-		if (TRIGame == 0)
-			GCNCard_Load(1);
+		GCNCard_Load(1);
 	}
 }
-
-extern vu32 TRIGame;
 
 /**
  * Set EXI timings based on the game ID.
@@ -156,7 +152,7 @@ extern vu32 TRIGame;
 void EXISetTimings(u32 TitleID, u32 Region)
 {
 	//GC BIOS, Trifoce Game, X-Men Legends 2, Rainbow Six 3, SRS or Starfox Assault (NTSC-U)
-	if(useipl || TRIGame != TRI_NONE || TitleID == 0x475832 || TitleID == 0x473633 ||
+	if(useipl || TitleID == 0x475832 || TitleID == 0x473633 ||
 		TitleID == 0x474353 || (TitleID == 0x474637 && Region == REGION_ID_USA))
 	{
 		CurrentTiming = EXI_IRQ_INSTANT;
@@ -197,11 +193,8 @@ void EXIInterrupt(void)
 
 void EXIShutdown(void)
 {
-	if (TRIGame || !exi_inited)
-	{
-		// Triforce doesn't use the standard EXI CARD interface.
+	if (!exi_inited)
 		return;
-	}
 
 //#ifdef DEBUG_EXI
 	dbgprintf("EXI: Saving memory card(s)...");
@@ -371,7 +364,7 @@ static void EXIDeviceMemoryCard(int slot, u8 *Data, u32 Length, u32 Mode)
 			case MEM_READ_ID_NINTENDO:
 			case MEM_READ_ID:
 			{
-				if( ConfigGetConfig(NIN_CFG_MEMCARDEMU) && (TRIGame == TRI_NONE) )
+				if( ConfigGetConfig(NIN_CFG_MEMCARDEMU))
 				{
 					write32( EXI_CMD_1, GCNCard_GetCode(slot) );
 				} else {
@@ -844,38 +837,4 @@ void EXIReadFontFile(u8* Data, u32 Length)
 {
 	memcpy(Data, FontBuf + IPLReadOffset - IPL_ROM_FONT_SJIS, Length);
 	sync_after_write(Data, Length);
-}
-
-//SegaBoot 3.11 with Free Play enabled
-static const unsigned int sb311block[54] =
-{
-    0x41434255, 0x30303031, 0x007D0512, 0x01000000, 0x00000311, 0x53424C4B, 
-    0x00000000, 0x63090400, 0x01010A01, 0x01010001, 0x01010101, 0x01010101, 
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000001, 
-    0x00000000, 0x00000000, 0x00000000, 0x00000001, 0x00000000, 0x00000000, 
-    0x00000000, 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0x00000001, 
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x200E1AFF,
-    0xFFFF0000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-};
-
-extern u32 arcadeMode;
-static bool TRIGameStarted = false;
-//make sure ambbBackupMem is filled correctly
-void EXIPrepareTRIGameStart()
-{
-	if(TRIGameStarted)
-		return;
-	dbgprintf("TRI:Setting up AMBB memory\r\n");
-	memset32(ambbBackupMem, 0, 0x400);
-	memcpy(ambbBackupMem, sb311block, sizeof(sb311block));
-	memcpy(ambbBackupMem + 0x200, sb311block, sizeof(sb311block));
-	if(arcadeMode)
-	{	//standard coin settings instead of free play
-		ambbBackupMem[0x00B] = 8; ambbBackupMem[0x022] = 1; ambbBackupMem[0x023] = 0;
-		ambbBackupMem[0x20B] = 8; ambbBackupMem[0x222] = 1; ambbBackupMem[0x223] = 0;
-	}
-	memset32(ambbBackupMem + 0x400, 0xFF, 0x10000 - 0x400);
-	TRIGameStarted = true;
 }

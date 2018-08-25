@@ -19,13 +19,11 @@ const char* OptionStrings[] =
 	"Drive Access LED",
 	"Log",
 	
-	"MaxPads",
 	"Language",
 	"Video",
 	"Videomode",
 	"Memcard Blocks",
 	"Memcard Multi",
-	"Native Control",
 };
 
 const char* LanguageStrings[] =

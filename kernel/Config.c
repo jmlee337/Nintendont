@@ -38,19 +38,6 @@ void ConfigInit( void )
 		ConfigSyncBeforeRead();
 	}
 
-	// override anything saved on disc, enable Native Control.
-	ncfg->MaxPads = NIN_CFG_MAXPAD;
-	ncfg->Config |= NIN_CFG_NATIVE_SI;
-
-	if( IsWiiU() )
-	{
-		//ncfg->Config |= NIN_CFG_HID;
-		ncfg->MaxPads = 0;
-
-		// Disable debugging and the drive access LED.
-		ncfg->Config &= ~(NIN_CFG_DEBUGGER | NIN_CFG_DEBUGWAIT | NIN_CFG_LED);
-	}
-
 	//if( (read32(0) >> 8) == 0x47504F )	// PSO 1&2 disable cheats/debugging
 	//{
 	//	ncfg->Config &= ~(NIN_CFG_CHEATS|NIN_CFG_DEBUGGER|NIN_CFG_DEBUGWAIT);

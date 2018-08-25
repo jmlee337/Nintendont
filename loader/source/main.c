@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Loader) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Loader) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -20,11 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 #include <gccore.h>
 #include <sys/param.h>
-#include <ogc/lwp_watchdog.h>
 #include <ogc/lwp_threads.h>
-#include <wiiuse/wpad.h>
-#include <wiidrc/wiidrc.h>
-#include <wupc/wupc.h>
 #include <di/di.h>
 #include <unistd.h>
 #include <locale.h>
@@ -43,10 +39,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "stub_bin.h"
 #include "titles.h"
 #include "ipl.h"
-#include "HID.h"
-#include "TRI.h"
 #include "Config.h"
-#include "wdvd.h"
 
 #include "ff_utf8.h"
 #include "diskio.h"
@@ -123,9 +116,6 @@ static u8 loader_stub[0x1800]; //save internally to prevent overwriting
 static ioctlv IOCTL_Buf ALIGNED(32);
 static const char ARGSBOOT_STR[9] ALIGNED(0x10) = {'a','r','g','s','b','o','o','t','\0'}; //makes it easier to go through the file
 static const char NIN_BUILD_STRING[] ALIGNED(32) = NIN_VERSION_STRING; // Version detection string used by nintendont launchers "$$Version:x.xxx"
-
-bool isWiiVC = false;
-bool wiiVCInternal = false;
 
 /**
  * Update meta.xml.
@@ -234,39 +224,21 @@ static u32 CheckForMultiGameAndRegion(u32 CurDICMD, u32 *ISOShift, u32 *BI2regio
 
 	if(CurDICMD)
 		ReadRealDisc(MultiHdr, 0, 0x800, CurDICMD);
-	else if (IsSupportedFileExt(ncfg->GamePath) || wiiVCInternal)
+	else if (IsSupportedFileExt(ncfg->GamePath))
 	{
-		if(wiiVCInternal)
+		snprintf(GamePath, sizeof(GamePath), "%s:%s", GetRootDevice(), ncfg->GamePath);
+		fres = f_open_char(&f, GamePath, FA_READ|FA_OPEN_EXISTING);
+		if (fres != FR_OK)
 		{
-			if(WDVD_FST_OpenDisc(0) != 0)
-			{
-				// Error opening the file.
-				free(MultiHdr);
-				return 1;
-			}
+			// Error opening the file.
+			free(MultiHdr);
+			return 1;
 		}
-		else
-		{
-			snprintf(GamePath, sizeof(GamePath), "%s:%s", GetRootDevice(), ncfg->GamePath);
-			fres = f_open_char(&f, GamePath, FA_READ|FA_OPEN_EXISTING);
-			if (fres != FR_OK)
-			{
-				// Error opening the file.
-				free(MultiHdr);
-				return 1;
-			}
-		}
-		if(wiiVCInternal)
-			read = WDVD_FST_Read(MultiHdr, 0x800);
-		else
-			f_read(&f, MultiHdr, 0x800, &read);
+		f_read(&f, MultiHdr, 0x800, &read);
 		if (read != 0x800)
 		{
 			// Error reading from the file.
-			if(wiiVCInternal)
-				WDVD_FST_Close();
-			else
-				f_close(&f);
+			f_close(&f);
 			free(MultiHdr);
 			return 2;
 		}
@@ -286,27 +258,15 @@ static u32 CheckForMultiGameAndRegion(u32 CurDICMD, u32 *ISOShift, u32 *BI2regio
 				*ISOShift = 0;
 			if (BI2region)
 			{
-				if(wiiVCInternal)
-				{
-					WDVD_FST_LSeek(0x8458);
-					read = WDVD_FST_Read(wdvdTmpBuf, sizeof(*BI2region));
-					memcpy(&BI2region, wdvdTmpBuf, sizeof(*BI2region));
-				}
-				else
-				{
-					f_lseek(&f, 0x8458);
-					f_read(&f, BI2region, sizeof(*BI2region), &read);
-				}
+				f_lseek(&f, 0x8458);
+				f_read(&f, BI2region, sizeof(*BI2region), &read);
 				if (read != sizeof(*BI2region))
 				{
 					// Error reading from the file.
 					ret = 3;
 				}
 			}
-			if(wiiVCInternal)
-				WDVD_FST_Close();
-			else
-				f_close(&f);
+			f_close(&f);
 			free(MultiHdr);
 			return ret;
 		}
@@ -357,10 +317,7 @@ static u32 CheckForMultiGameAndRegion(u32 CurDICMD, u32 *ISOShift, u32 *BI2regio
 		if (!CurDICMD)
 		{
 			// Close the disc image file.
-			if(wiiVCInternal)
-				WDVD_FST_Close();
-			else
-				f_close(&f);
+			f_close(&f);
 		}
 
 		if (BI2region)
@@ -420,16 +377,8 @@ static u32 CheckForMultiGameAndRegion(u32 CurDICMD, u32 *ISOShift, u32 *BI2regio
 				ReadRealDisc(GameHdr, RealOffset, 0x800, CurDICMD);
 			else
 			{
-				if(wiiVCInternal)
-				{
-					WDVD_FST_LSeek(RealOffset);
-					read = WDVD_FST_Read(GameHdr, 0x800);
-				}
-				else
-				{
-					f_lseek(&f, RealOffset);
-					f_read(&f, GameHdr, 0x800, &read);
-				}
+				f_lseek(&f, RealOffset);
+				f_read(&f, GameHdr, 0x800, &read);
 			}
 
 			// Make sure the title in the header is NULL terminated.
@@ -453,10 +402,7 @@ static u32 CheckForMultiGameAndRegion(u32 CurDICMD, u32 *ISOShift, u32 *BI2regio
 	free(MultiHdr);
 	if (!CurDICMD)
 	{
-		if(wiiVCInternal)
-			WDVD_FST_Close();
-		else
-			f_close(&f);
+		f_close(&f);
 	}
 
 	// TODO: Share code with menu.c.
@@ -570,7 +516,7 @@ int main(int argc, char **argv)
 	{
 		memcpy(ncfg, argv[1], sizeof(NIN_CFG));
 		UpdateNinCFG(); //support for old versions with this
-		if(ncfg->Magicbytes == 0x01070CF6 && ncfg->Version == NIN_CFG_VERSION && ncfg->MaxPads <= NIN_CFG_MAXPAD)
+		if(ncfg->Magicbytes == 0x01070CF6 && ncfg->Version == NIN_CFG_VERSION)
 		{
 			if(ncfg->Config & NIN_CFG_AUTO_BOOT)
 			{	//do NOT remove, this can be used to see if nintendont knows args
@@ -580,99 +526,67 @@ int main(int argc, char **argv)
 		}
 	}
 
-	//Meh, doesnt do anything anymore anyways
-	//STM_RegisterEventHandler(HandleSTMEvent);
-
 	Initialise(argsboot);
-
-	//for BT.c
-	CONF_GetPadDevices((conf_pads*)0x932C0000);
-	DCFlushRange((void*)0x932C0000, sizeof(conf_pads));
-	*(vu32*)0x932C0490 = CONF_GetIRSensitivity();
-	*(vu32*)0x932C0494 = CONF_GetSensorBarPosition();
-	DCFlushRange((void*)0x932C0490, 8);
-
-	WiiDRC_Init();
-	isWiiVC = WiiDRC_Inited();
-	if(isWiiVC)
-	{
-		//Clear out stubs to make it (hopefully) reboot properly
-		memset(loader_stub, 0, 0x1800);
-		memset((void*)0x80001800, 0, 0x1800);
-		DCStoreRange((void*)0x80001800, 0x1800);
-	}
 
 	s32 fd;
 
-	/* Wii VC fw.img is pre-patched but Wii/vWii isnt, so we
-		still have to reload IOS on those with a patched kernel */
-	if(!isWiiVC)
+	// Preparing IOS58 Kernel...
+	if(argsboot == false)
+		ShowMessageScreen("Preparing IOS58 Kernel...");
+
+	u32 u;
+	//Disables MEMPROT for patches
+	write16(MEM_PROT, 0);
+	//Patches FS access
+	for( u = 0x93A00000; u < 0x94000000; u+=2 )
 	{
-		// Preparing IOS58 Kernel...
-		if(argsboot == false)
-			ShowMessageScreen("Preparing IOS58 Kernel...");
-
-		u32 u;
-		//Disables MEMPROT for patches
-		write16(MEM_PROT, 0);
-		//Patches FS access
-		for( u = 0x93A00000; u < 0x94000000; u+=2 )
+		if( memcmp( (void*)(u), FSAccessPattern, sizeof(FSAccessPattern) ) == 0 )
 		{
-			if( memcmp( (void*)(u), FSAccessPattern, sizeof(FSAccessPattern) ) == 0 )
-			{
-				//gprintf("FSAccessPatch:%08X\r\n", u );
-				memcpy( (void*)u, FSAccessPatch, sizeof(FSAccessPatch) );
-				DCFlushRange((void*)u, sizeof(FSAccessPatch));
-				break;
-			}
+			//gprintf("FSAccessPatch:%08X\r\n", u );
+			memcpy( (void*)u, FSAccessPatch, sizeof(FSAccessPatch) );
+			DCFlushRange((void*)u, sizeof(FSAccessPatch));
+			break;
 		}
-
-		// Load and patch IOS58.
-		if (LoadKernel() < 0)
-		{
-			// NOTE: Attempting to initialize controllers here causes a crash.
-			// Hence, we can't wait for the user to press the HOME button, so
-			// we'll just wait for a timeout instead.
-			PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*20, "Returning to loader in 10 seconds.");
-			UpdateScreen();
-			VIDEO_WaitVSync();
-
-			// Wait 10 seconds...
-			usleep(10000000);
-
-			// Return to the loader.
-			ExitToLoader(1);
-		}
-		PatchKernel();
-		u32 v = FoundVersion;
-		//this ensures all IOS modules get loaded in ES on reload
-		memcpy( ESBootPatch+0x14, &v, 4 );
-		DCInvalidateRange( (void*)0x939F0348, sizeof(ESBootPatch) );
-		memcpy( (void*)0x939F0348, ESBootPatch, sizeof(ESBootPatch) );
-		DCFlushRange( (void*)0x939F0348, sizeof(ESBootPatch) );
-
-		// Loading IOS58 Kernel...
-		if(argsboot == false)
-			ShowMessageScreen("Loading IOS58 Kernel...");
-
-		//libogc still has that, lets close it
-		__ES_Close();
-		fd = IOS_Open( dev_es, 0 );
-
-		raw_irq_handler_t irq_handler = BeforeIOSReload();
-		IOS_IoctlvAsync( fd, 0x25, 0, 0, &IOCTL_Buf, NULL, NULL );
-		sleep(1); //wait this time at least
-		AfterIOSReload( irq_handler, v );
-		//Disables MEMPROT for patches
-		write16(MEM_PROT, 0);
 	}
-	//else if(*(vu16*)0xCD8005A0 != 0xCAFE)
-	//{
-		/* WiiVC seems to have some bug that without any fake IOS
-		   reload makes it impossible to read HW regs on PPC 
-		   and it seems to break some consoles to reload IOS */
-	//	IOS_ReloadIOS(58);
-	//}
+
+	// Load and patch IOS58.
+	if (LoadKernel() < 0)
+	{
+		// NOTE: Attempting to initialize controllers here causes a crash.
+		// Hence, we can't wait for the user to press the HOME button, so
+		// we'll just wait for a timeout instead.
+		PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*20, "Returning to loader in 10 seconds.");
+		UpdateScreen();
+		VIDEO_WaitVSync();
+
+		// Wait 10 seconds...
+		usleep(10000000);
+
+		// Return to the loader.
+		ExitToLoader(1);
+	}
+	PatchKernel();
+	u32 v = FoundVersion;
+	//this ensures all IOS modules get loaded in ES on reload
+	memcpy( ESBootPatch+0x14, &v, 4 );
+	DCInvalidateRange( (void*)0x939F0348, sizeof(ESBootPatch) );
+	memcpy( (void*)0x939F0348, ESBootPatch, sizeof(ESBootPatch) );
+	DCFlushRange( (void*)0x939F0348, sizeof(ESBootPatch) );
+
+	// Loading IOS58 Kernel...
+	if(argsboot == false)
+		ShowMessageScreen("Loading IOS58 Kernel...");
+
+	//libogc still has that, lets close it
+	__ES_Close();
+	fd = IOS_Open( dev_es, 0 );
+
+	raw_irq_handler_t irq_handler = BeforeIOSReload();
+	IOS_IoctlvAsync( fd, 0x25, 0, 0, &IOCTL_Buf, NULL, NULL );
+	sleep(1); //wait this time at least
+	AfterIOSReload( irq_handler, v );
+	//Disables MEMPROT for patches
+	write16(MEM_PROT, 0);
 
 	// Preparing Nintendont Kernel...
 	if(argsboot == false)
@@ -699,13 +613,7 @@ int main(int argc, char **argv)
 	//make sure kernel doesnt reload
 	*(vu32*)0x93003420 = 0;
 	DCFlushRange((void*)0x93003420,0x20);
-	//Set some important kernel regs
-	*(vu32*)0x92FFFFC0 = isWiiVC; //cant be detected in IOS
-	if(WiiDRC_Connected()) //used in PADReadGC.c
-		*(vu32*)0x92FFFFC4 = (u32)WiiDRC_GetRawI2CAddr();
-	else //will disable gamepad spot for player 1
-		*(vu32*)0x92FFFFC4 = 0;
-	DCFlushRange((void*)0x92FFFFC0,0x20);
+
 	fd = IOS_Open( dev_es, 0 );
 	IOS_IoctlvAsync(fd, 0x1F, 0, 0, &IOCTL_Buf, NULL, NULL);
 	//Waiting for Nintendont...
@@ -737,10 +645,7 @@ int main(int argc, char **argv)
 	int i;
 	for (i = DEV_SD; i <= DEV_USB; i++)
 	{
-		//only check SD on Wii VC
-		if(i == DEV_USB && isWiiVC)
-			break;
-		//check SD and USB on Wii and WiiU
+		//check SD and USB on Wii
 		const WCHAR *devNameFF = MountDevice(i);
 		if (devNameFF && !foundOneDevice)
 		{
@@ -799,9 +704,6 @@ int main(int argc, char **argv)
 			ncfg->Language = NIN_LAN_AUTO;
 			ncfg->MemCardBlocks = 0x2;//251 blocks
 		}
-		// override anything saved on disc, enable Native Control
-		ncfg->MaxPads = NIN_CFG_MAXPAD;
-		ncfg->Config |= NIN_CFG_NATIVE_SI;
 
 		// Prevent autobooting if B is pressed
 		int i = 0;
@@ -855,70 +757,37 @@ int main(int argc, char **argv)
 	{
 		if(argsboot == false)
 			ShowLoadingScreen();
-		if(isWiiVC)
+
+		DI_UseCache(false);
+		DI_Init();
+		DI_Mount();
+		while (DI_GetStatus() & DVD_INIT)
+			usleep(20000);
+		if(!(DI_GetStatus() & DVD_READY))
 		{
-			if(WDVD_Init() != 0)
-				ShowMessageScreenAndExit("The Wii VC Disc could not be initialized!", 1);
-			if(WDVD_OpenDataPartition() != 0)
-				ShowMessageScreenAndExit("Found no Partition on Wii VC Disc!", 1);
-			if(!WDVD_FST_Mount())
-				ShowMessageScreenAndExit("Unable to open Partition on Wii VC Disc!", 1);
-			if(WDVD_FST_OpenDisc(0) != 0)
-				ShowMessageScreenAndExit("No game.iso on Wii VC Disc!", 1);
-			u8 *DIBuf = memalign(32,0x800);
-			if(WDVD_FST_Read(DIBuf, 0x800) != 0x800)
+			ShowMessageScreenAndExit("The Disc Drive could not be initialized!", 1);
+		}
+		DI_Close();
+
+		u8 *DIBuf = memalign(32,0x800);
+		memset(DIBuf, 0, 0x20);
+		DCFlushRange(DIBuf, 0x20);
+		CurDICMD = DIP_CMD_NORMAL;
+		ReadRealDisc(DIBuf, 0, 0x20, CurDICMD);
+		if( IsGCGame(DIBuf) == false )
+		{
+			memset(DIBuf, 0, 0x800);
+			DCFlushRange(DIBuf, 0x800);
+			CurDICMD = DIP_CMD_DVDR;
+			ReadRealDisc(DIBuf, 0, 0x800, CurDICMD);
+			if( IsGCGame(DIBuf) == false )
 			{
 				free(DIBuf);
-				ShowMessageScreenAndExit("Cant read game.iso start!", 1);
+				ShowMessageScreenAndExit("The Disc in the Drive is not a GC Disc!", 1);
 			}
-			if( IsGCGame(DIBuf) == false )
-			{
-				WDVD_FST_LSeek(0x8000);
-				WDVD_FST_Read(DIBuf, 0x800);
-				if( IsGCGame(DIBuf) == false )
-				{
-					free(DIBuf);
-					ShowMessageScreenAndExit("game.iso is not a GC Disc!", 1);
-				}
-			}
-			memcpy(&(ncfg->GameID), DIBuf, 4);
-			free(DIBuf);
-			WDVD_FST_Close();
-			wiiVCInternal = true;
 		}
-		else
-		{
-			DI_UseCache(false);
-			DI_Init();
-			DI_Mount();
-			while (DI_GetStatus() & DVD_INIT)
-				usleep(20000);
-			if(!(DI_GetStatus() & DVD_READY))
-			{
-				ShowMessageScreenAndExit("The Disc Drive could not be initialized!", 1);
-			}
-			DI_Close();
-
-			u8 *DIBuf = memalign(32,0x800);
-			memset(DIBuf, 0, 0x20);
-			DCFlushRange(DIBuf, 0x20);
-			CurDICMD = DIP_CMD_NORMAL;
-			ReadRealDisc(DIBuf, 0, 0x20, CurDICMD);
-			if( IsGCGame(DIBuf) == false )
-			{
-				memset(DIBuf, 0, 0x800);
-				DCFlushRange(DIBuf, 0x800);
-				CurDICMD = DIP_CMD_DVDR;
-				ReadRealDisc(DIBuf, 0, 0x800, CurDICMD);
-				if( IsGCGame(DIBuf) == false )
-				{
-					free(DIBuf);
-					ShowMessageScreenAndExit("The Disc in the Drive is not a GC Disc!", 1);
-				}
-			}
-			memcpy(&(ncfg->GameID), DIBuf, 4);
-			free(DIBuf);
-		}
+		memcpy(&(ncfg->GameID), DIBuf, 4);
+		free(DIBuf);
 	}
 
 	if(SaveSettings)
@@ -1118,93 +987,48 @@ int main(int argc, char **argv)
 	}
 
 	#define GCN_IPL_SIZE 2097152
-	#define TRI_IPL_SIZE 1048576
 	void *iplbuf = NULL;
 	bool useipl = false;
-	bool useipltri = false;
-
-	//Check if game is Triforce game
-	u32 IsTRIGame = 0;
-	if (ncfg->GameID != 0x47545050) //Damn you Knights Of The Temple!
-		IsTRIGame = TRISetupGames(ncfg->GamePath, CurDICMD, ISOShift);
 
 	if (!(ncfg->Config & (NIN_CFG_SKIP_IPL)))
 	{
-		if(IsTRIGame == 0)
+		// Attempt to load the GameCube IPL.
+		char iplchar[32];
+		iplchar[0] = 0;
+		switch (BI2region)
 		{
-			// Attempt to load the GameCube IPL.
-			char iplchar[32];
-			iplchar[0] = 0;
-			switch (BI2region)
-			{
-				case BI2_REGION_USA:
-					snprintf(iplchar, sizeof(iplchar), "%s:/iplusa.bin", GetRootDevice());
-					break;
+			case BI2_REGION_USA:
+				snprintf(iplchar, sizeof(iplchar), "%s:/iplusa.bin", GetRootDevice());
+				break;
 
-				case BI2_REGION_JAPAN:
-				case BI2_REGION_SOUTH_KOREA:
-				default:
-					snprintf(iplchar, sizeof(iplchar), "%s:/ipljap.bin", GetRootDevice());
-					break;
+			case BI2_REGION_JAPAN:
+			case BI2_REGION_SOUTH_KOREA:
+			default:
+				snprintf(iplchar, sizeof(iplchar), "%s:/ipljap.bin", GetRootDevice());
+				break;
 
-				case BI2_REGION_PAL:
-					// FIXME: PAL IPL is broken on Wii U.
-					if (!IsWiiU())
-						snprintf(iplchar, sizeof(iplchar), "%s:/iplpal.bin", GetRootDevice());
-					break;
-			}
-
-			FIL f;
-			if (iplchar[0] != 0 &&
-			    f_open_char(&f, iplchar, FA_READ|FA_OPEN_EXISTING) == FR_OK)
-			{
-				if (f.obj.objsize == GCN_IPL_SIZE)
-				{
-					iplbuf = malloc(GCN_IPL_SIZE);
-					UINT read;
-					f_read(&f, iplbuf, GCN_IPL_SIZE, &read);
-					useipl = (read == GCN_IPL_SIZE);
-				}
-				f_close(&f);
-			}
+			case BI2_REGION_PAL:
+				snprintf(iplchar, sizeof(iplchar), "%s:/iplpal.bin", GetRootDevice());
+				break;
 		}
-		else
+
+		FIL f;
+		if (iplchar[0] != 0 &&
+		    f_open_char(&f, iplchar, FA_READ|FA_OPEN_EXISTING) == FR_OK)
 		{
-			// Attempt to load the Triforce IPL. (segaboot)
-			char iplchar[32];
-			snprintf(iplchar, sizeof(iplchar), "%s:/segaboot.bin", GetRootDevice());
-			FIL f;
-			if (f_open_char(&f, iplchar, FA_READ|FA_OPEN_EXISTING) == FR_OK)
+			if (f.obj.objsize == GCN_IPL_SIZE)
 			{
-				if (f.obj.objsize == TRI_IPL_SIZE)
-				{
-					f_lseek(&f, 0x20);
-					void *iplbuf = (void*)0x92A80000;
-					UINT read;
-					f_read(&f, iplbuf, TRI_IPL_SIZE - 0x20, &read);
-					useipltri = (read == (TRI_IPL_SIZE - 0x20));
-				}
-				f_close(&f);
+				iplbuf = malloc(GCN_IPL_SIZE);
+				UINT read;
+				f_read(&f, iplbuf, GCN_IPL_SIZE, &read);
+				useipl = (read == GCN_IPL_SIZE);
 			}
+			f_close(&f);
 		}
 	}
 
 	//sync changes
 	CloseDevices();
-
-	WPAD_Disconnect(0);
-	WPAD_Disconnect(1);
-	WPAD_Disconnect(2);
-	WPAD_Disconnect(3);
-
-	WUPC_Shutdown();
-	WPAD_Shutdown();
-
-	if(wiiVCInternal)
-	{
-		WDVD_FST_Unmount();
-		WDVD_Close();
-	}
 
 	//before flushing do game specific patches
 	if(ncfg->Config & NIN_CFG_FORCE_PROG &&
@@ -1290,62 +1114,6 @@ int main(int argc, char **argv)
 				PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*13, "Loading config...");
 			if(abs(STATUS_LOADING) > 7 && abs(STATUS_LOADING) < 20)
 				PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*13, "Loading config... Done!");
-			/*if(STATUS_LOADING == 8)
-			{
-				PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*14, "Init HID devices... ");
-				if ( STATUS_ERROR == 1)
-				{
-					PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*15, "          Make sure the Controller is plugged in");
-				}
-				else
-					PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*15, "%50s", " ");
-			}
-			if(abs(STATUS_LOADING) > 8 && abs(STATUS_LOADING) < 20)
-			{
-				if (ncfg->Config & NIN_CFG_NATIVE_SI)
-					PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*14, "Init HID devices... Using ONLY NATIVE Gamecube Ports");
-				else if ((ncfg->MaxPads == 1) && (ncfg->Config & NIN_CFG_HID))
-					PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*14, "Init HID devices... Using Gamecube and HID Ports");
-				else if ((ncfg->MaxPads > 0) && (ncfg->Config & NIN_CFG_HID))
-					PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*14, "Init HID devices... Using Gamecube, HID, and BT Ports");
-				else if (ncfg->MaxPads > 0)
-					PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*14, "Init HID devices... Using Gamecube and BT Ports");
-				else if (ncfg->Config & NIN_CFG_HID)
-					PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*14, "Init HID devices... Using HID and Bluetooth Ports");
-				else
-					PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*14, "Init HID devices... Using Bluetooth Ports... Done!");
-			}
-			if(STATUS_LOADING == -8)
-			{
-				PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*14, "Init HID devices... Failed! Shutting down");
-				switch (STATUS_ERROR)
-				{
-					case -1:
-						PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*15, "No Controller plugged in! %25s", " ");
-						break;
-					case -2:
-						PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*15, "Missing %s:/controller.ini %20s", GetRootDevice(), " ");
-						break;
-					case -3:
-						PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*15, "Controller does not match %s:/controller.ini %6s", GetRootDevice(), " ");
-						break;
-					case -4:
-						PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*15, "Invalid Polltype in %s:/controller.ini %12s", GetRootDevice(), " ");
-						break;
-					case -5:
-						PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*15, "Invalid DPAD value in %s:/controller.ini %9s", GetRootDevice(), " ");
-						break;
-					case -6:
-						PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*15, "PS3 controller init error %25s", " ");
-						break;
-					case -7:
-						PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*15, "Gamecube adapter for Wii u init error %13s", " ");
-						break;
-					default:
-						PrintFormat(DEFAULT_SIZE, MAROON, MENU_POS_X, MENU_POS_Y + 20*15, "Unknown error %d %35s", STATUS_ERROR, " ");
-						break;
-				}
-			}*/
 			if(STATUS_LOADING == 9)
 				PrintFormat(DEFAULT_SIZE, BLACK, MENU_POS_X, MENU_POS_Y + 20*14, "Init DI... %40s", " ");
 			if(abs(STATUS_LOADING) > 9 && abs(STATUS_LOADING) < 20)
@@ -1379,8 +1147,7 @@ int main(int argc, char **argv)
 	u32 vidForce = (ncfg->VideoMode & NIN_VID_FORCE);
 	u32 vidForceMode = (ncfg->VideoMode & NIN_VID_FORCE_MASK);
 
-	progressive = (ncfg->Config & NIN_CFG_FORCE_PROG)
-		&& !useipl && !useipltri;
+	progressive = (ncfg->Config & NIN_CFG_FORCE_PROG) && !useipl;
 
 	switch (BI2region)
 	{
@@ -1475,9 +1242,9 @@ int main(int argc, char **argv)
 							ncfg->Language == NIN_LAN_SPANISH);
 
 			// Set the progressive scan flag if a component cable
-			// is connected (or HDMI on Wii U), unless we're loading
-			// BMX XXX, since that game won't even boot on a real
-			// GameCube if a component cable is connected.
+			// is connected unless we're loading BMX XXX, since
+			// that game won't even boot on a real GameCube if a
+			// component cable is connected.
 			if ((ncfg->GameID >> 8) != 0x474233 && !spPopWW &&
 				(ncfg->VideoMode & NIN_VID_PROG))
 			{
@@ -1512,7 +1279,6 @@ int main(int argc, char **argv)
 		SI_SetCommand(chan,(0x00000300|0x00400000));
 		SI_EnablePolling(bits);
 	}
-	*(vu32*)0xD3003004 = 1; //ready up HID Thread
 
 	VIDEO_SetBlack(TRUE);
 	VIDEO_Flush();
@@ -1536,9 +1302,7 @@ int main(int argc, char **argv)
 
 	DCInvalidateRange((void*)0x93003000, 0x200);
 	//*(vu32*)0x93003000 = currev; //set kernel rev (now in LoadKernel)
-	*(vu32*)0x93003008 = 0x80000004; //just some address for SIGetType
 	//0x9300300C is already used for multi-iso
-	memset((void*)0x93003010, 0, 0x190); //clears alot of pad stuff
 	strcpy((char*)0x930031A0, "ARStartDMA: %08x %08x %08x\n"); //ARStartDMA Debug
 	memset((void*)0x930031E0, 0, 0x20); //clears tgc stuff
 	DCFlushRange((void*)0x93003000, 0x200);
@@ -1558,7 +1322,6 @@ int main(int argc, char **argv)
 	__exception_closeall();
 	__lwp_thread_closeall();
 
-	DVDStartCache(); //waits for kernel start
 	DCInvalidateRange((void*)0x90000000, 0x1000000);
 	memset((void*)(void*)0x90000000, 0, 0x1000000); //clear ARAM
 	DCFlushRange((void*)0x90000000, 0x1000000);
@@ -1584,11 +1347,6 @@ int main(int argc, char **argv)
 	}
 	else //use our own loader
 	{
-		if(useipltri)
-		{
-			*(vu32*)0xD3003420 = 0x6DEA;
-			while(*(vu32*)0xD3003420 == 0x6DEA) ;
-		}
 		memcpy((void*)0x81300000, multidol_ldr_bin, multidol_ldr_bin_size);
 		DCFlushRange((void*)0x81300000, multidol_ldr_bin_size);
 		ICInvalidateRange((void*)0x81300000, multidol_ldr_bin_size);

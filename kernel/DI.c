@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Kernel) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Kernel) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -25,7 +25,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "global.h"
 #include "DI.h"
 #include "RealDI.h"
-#include "wdvd.h"
 #include "string.h"
 #include "common.h"
 #include "alloc.h"
@@ -36,8 +35,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "ReadSpeed.h"
 #include "ISO.h"
 #include "FST.h"
-#include "HID.h"
-#include "BT.h"
 #include "usbstorage.h"
 
 #include "ff_utf8.h"
@@ -67,7 +64,6 @@ extern const u8 *DiskDriveInfo;
 extern u32 FSTMode;
 extern u32 RealDiscCMD;
 extern u32 RealDiscError;
-extern bool wiiVCInternal;
 u32 WaitForRealDisc = 0;
 u32 DiscRequested = 0;
 
@@ -77,18 +73,9 @@ const u32 DI_READ_BUFFER_LENGTH = 0x80000;
 extern u32 GAME_ID;
 extern u16 GAME_ID6;
 extern u32 TITLE_ID;
- 
-// Triforce
-extern vu32 TRIGame;
-extern vu32 useipltri;
-
-static u32 GCAMKeyA;
-static u32 GCAMKeyB;
-static u32 GCAMKeyC;
 
 static u8 *MediaBuffer;
 static u8 *NetworkCMDBuffer;
-static u8 *const DIMMMemory = (u8*)0x12B80000;
 
 // Multi-disc filenames.
 static const char disc_filenames[8][16] = {
@@ -139,21 +126,6 @@ void DiscReadSync(u32 Buffer, u32 Offset, u32 Length, u32 Mode)
 	DIFinishAsync();
 }
 
-//ISO Cache is disabled while SegaBoot runs
-static u8 *const SegaBoot = (u8*)0x12A80000;
-void ReadSegaBoot(u32 Buffer, u32 Offset, u32 Length)
-{
-	if(Offset > 0x100000) //set invalid
-		memset32((void*)Buffer, 0, Length);
-	else //part of actual ipl
-	{
-		sync_before_read(SegaBoot+Offset, Length);
-		memcpy((void*)Buffer, SegaBoot+Offset, Length);
-		DoPatches((void*)Buffer, Length, Offset);
-	}
-	sync_after_write((void*)Buffer, Length);
-}
-
 void DIinit( bool FirstTime )
 {
 	//This debug statement seems to cause crashing.
@@ -164,14 +136,7 @@ void DIinit( bool FirstTime )
 
 	if (FirstTime)
 	{
-		if(wiiVCInternal)
-		{
-			if(WDVD_Init() != 0)
-				Shutdown();
-			if(!WDVD_FST_Mount())
-				Shutdown();
-		}
-		else if(RealDiscCMD == 0)
+		if(RealDiscCMD == 0)
 		{
 			// Check if this is a 2-disc game.
 			u32 i, slash_pos;
@@ -246,9 +211,6 @@ void DIinit( bool FirstTime )
 		NetworkCMDBuffer = (u8*)malloc( 512 );
 		memset32( NetworkCMDBuffer, 0, 512 );
 
-		//This normally contains default rankings but we just clear it
-		memset32( DIMMMemory, 0, 0x300000 );
-
 		memset32( (void*)DI_BASE, 0, 0x30 );
 		sync_after_write( (void*)DI_BASE, 0x40 );
 	}
@@ -258,48 +220,32 @@ void DIinit( bool FirstTime )
 	GAME_ID6 = R16(4);
 	TITLE_ID = (GAME_ID >> 8);
 
-	GCAMKeyA = read32(0);
-	GCAMKeyB = read32(4);
-	GCAMKeyC = read32(8);
-
 	ReadSpeed_Init();
-}
-void DISetDIMMVersion( u32 Version )
-{
-	write32((u32)DIMMMemory, Version);
 }
 bool DIChangeDisc( u32 DiscNumber )
 {
-	if(wiiVCInternal)
+	// Don't do anything if multi-disc mode isn't enabled.
+	if (!DI_2disc_filenames[0] ||
+		!DI_2disc_filenames[1] ||
+		DiscNumber > 1)
 	{
-		if(DiscNumber > 1)
-			return false;
-		DiscRequested = DiscNumber;
+		return false;
 	}
-	else
+
+	u32 slash_pos;
+	char* DiscName = ConfigGetGamePath();
+
+	//search the string backwards for '/'
+	for (slash_pos = strlen(DiscName); slash_pos > 0; --slash_pos)
 	{
-		// Don't do anything if multi-disc mode isn't enabled.
-		if (!DI_2disc_filenames[0] ||
-			!DI_2disc_filenames[1] ||
-			DiscNumber > 1)
-		{
-			return false;
-		}
-
-		u32 slash_pos;
-		char* DiscName = ConfigGetGamePath();
-
-		//search the string backwards for '/'
-		for (slash_pos = strlen(DiscName); slash_pos > 0; --slash_pos)
-		{
-			if (DiscName[slash_pos] == '/')
-				break;
-		}
-		slash_pos++;
-
-		_sprintf(DiscName+slash_pos, DI_2disc_filenames[DiscNumber]);
-		dbgprintf("New Gamepath:\"%s\"\r\n", DiscName );
+		if (DiscName[slash_pos] == '/')
+			break;
 	}
+	slash_pos++;
+
+	_sprintf(DiscName+slash_pos, DI_2disc_filenames[DiscNumber]);
+	dbgprintf("New Gamepath:\"%s\"\r\n", DiscName );
+
 	DIinit(false);
 	return true;
 }
@@ -313,8 +259,7 @@ void DIInterrupt()
 	if(read32(DI_CONTROL) & 2)
 	{
 		if( TITLE_ID == 0x47544B || //Turok Evolution
-			TITLE_ID == 0x47514C || //Dora the Explorer
-			TRIGame != TRI_NONE )
+			TITLE_ID == 0x47514C ) //Dora the Explorer
 		{	/* Manually invalidate data */
 			write32(DI_INV_ADR, read32(DI_DMA_ADR));
 			write32(DI_INV_LEN, read32(DI_DMA_LEN));
@@ -351,66 +296,6 @@ void DIInterrupt()
 	DI_IRQ = false;
 }
 
-static void TRIReadMediaBoard( u32 Buffer, u32 Offset, u32 Length )
-{
-	sync_before_read( (void*)Buffer, Length );
-	if( (Offset & 0x8FFF0000) == 0x80000000 )
-	{
-		switch(Offset)
-		{
-			// Media board status (1)
-			case 0x80000000:
-				W16( Buffer, 0x0100 );
-				break;
-			// Media board status (2)
-			case 0x80000020:
-				memset( (void*)Buffer, 0, Length );
-				break;
-			// Media board status (3)
-			case 0x80000040:
-				memset( (void*)Buffer, 0xFF, Length );
-				// DIMM size (512MB)
-				W32( Buffer, 0x00000020 );
-				// GCAM signature
-				W32( Buffer+4, 0x4743414D );
-				break;
-			// Firmware status (1)
-			case 0x80000120:
-				W32( Buffer, 0x00000001 );
-				break;
-			// Firmware status (2)
-			case 0x80000140:
-				W32( Buffer, 0x01000000 );
-				break;
-			default:
-				dbgprintf("Unhandled Media Board Read:%08X\n", Offset );
-				break;
-		}
-	}  // DIMM memory (3MB)
-	else if( (Offset >= 0x1F000000) && (Offset <= 0x1F300000) )
-	{
-		u32 roffset = Offset - 0x1F000000;
-		memcpy( (void*)Buffer, DIMMMemory + roffset, Length );
-	}  // DIMM command
-	else if( (Offset >= 0x1F900000) && (Offset <= 0x1F900040) )
-	{
-		u32 roffset = Offset - 0x1F900000;
-	#ifdef DEBUG_GCAM
-		dbgprintf("GC-AM: Read MEDIA BOARD COMM AREA (%08x)\n", roffset );
-	#endif
-		memcpy( (void*)Buffer, MediaBuffer + roffset, Length );
-	}  // Network command
-	else if( (Offset >= 0x1F800200) && (Offset <= 0x1F8003FF) )
-	{
-		u32 roffset = Offset - 0x1F800200;
-	#ifdef DEBUG_GCAM
-		dbgprintf("GC-AM: Read MEDIA BOARD NETWORK COMMAND (%08x)\n", roffset );
-	#endif
-		memcpy( (void*)Buffer, NetworkCMDBuffer + roffset, Length );
-	}
-	sync_after_write( (void*)Buffer, Length );
-}
-
 void DIUpdateRegisters( void )
 {
 	if( DI_IRQ == true ) //still working
@@ -424,53 +309,7 @@ void DIUpdateRegisters( void )
 	{
 		udelay(50); //security delay
 		write32( DI_STATUS, read32(DI_STATUS) & 0x2A ); //clear status
-#ifndef TRI_DI_PATCH
-		/*
-			Trifroce is sending all DI commands encrypted since by chance a crypted command
-			could have the same value as a normal command we have to check if it really is
-			a normal command or not.
-		*/
-		if(TRIGame)
-		{
-			switch( read32(DI_CMD_0) >> 8 )
-			{
-				case 0x120000:
-				case 0xA70000:
-				case 0xA80000:
-				case 0xAB0000:
-				case 0xE00000:
-				case 0xE10000: case 0xE10100:
-				case 0xE20000: case 0xE20100: case 0xE20200: case 0xE20300:
-				case 0xE30000:
-				case 0xE40000:
-				case 0xE40100:
-				case 0xF80000:
-				case 0xF90000:
-					DIcommand = read32(DI_CMD_0) >> 24;
-				break;
-				default:
-					//Decrypt command
-					write32( DI_CMD_0, read32(DI_CMD_0) ^ GCAMKeyA );
-					write32( DI_CMD_1, read32(DI_CMD_1) ^ GCAMKeyB );
-					write32( DI_CMD_2, read32(DI_CMD_2) ^ GCAMKeyC );
-
-					//Update keys
-					u32 seed = read32(DI_CMD_0) >> 16;
-
-					GCAMKeyA = GCAMKeyA * seed;
-					GCAMKeyB = GCAMKeyB * seed;
-					GCAMKeyC = GCAMKeyC * seed;
-
-					DIcommand = read32(DI_CMD_0) & 0xFF;
-					break;
-			}
-		} else {
-			DIcommand = read32(DI_CMD_0) >> 24;
-		}
-#else
-		//no encryption here, just direct CMD
 		DIcommand = read32(DI_CMD_0) >> 24;
-#endif
 		switch( DIcommand )
 		{
 			default:
@@ -536,17 +375,7 @@ void DIUpdateRegisters( void )
 			} break;
 			case 0x12:
 			{
-				if(TRIGame)
-				{
-					#ifdef DEBUG_GCAM
-					dbgprintf("GC-AM: 0x12\n");
-					#endif
-					//if(TRIGame == TRI_GP2) //this is what it SHOULD be
-					//	write32( DI_IMM, 0x29000000 );
-					//else
-						write32( DI_IMM, 0x21000000 );
-				}
-				else if(read32(DI_CMD_2) == 32)
+				if(read32(DI_CMD_2) == 32)
 				{
 					//dbgprintf("DIP:DVDLowInquiry( 0x%08x, 0x%08x )\r\n", read32(DI_DMA_ADR), read32(DI_DMA_LEN));
 					void *Buffer = (void*)P2C(read32(DI_DMA_ADR));
@@ -555,139 +384,9 @@ void DIUpdateRegisters( void )
 				}
 				DIOK = 2;
 			} break;
-			case 0xAA:
-			{
-				u32 Buffer	= P2C(read32(DI_DMA_ADR));
-				u32 Length	= read32(DI_CMD_2);
-				u32 Offset	= read32(DI_CMD_1) << 2;
-				//dbgprintf( "GCAM:Write( 0x%08x, 0x%08x, 0x%08x )\n", Offset, Length, Buffer|0x80000000 );
-
-				sync_before_read( (void*)Buffer, Length );
-
-				// DIMM memory (3MB)
-				if( (Offset >= 0x1F000000) && (Offset <= 0x1F300000) )
-				{
-					u32 roffset = Offset - 0x1F000000;
-					memcpy( DIMMMemory + roffset, (void*)Buffer, Length );
-				}
-
-				// DIMM command
-				if( (Offset >= 0x1F900000) && (Offset <= 0x1F900040) )
-				{
-					u32 roffset = Offset - 0x1F900000;
-					#ifdef DEBUG_GCAM
-					dbgprintf("GC-AM: Write MEDIA BOARD COMM AREA (%08x)\n", roffset );
-					#endif
-					memcpy( MediaBuffer + roffset, (void*)Buffer, Length );
-				}
-
-				// Network command
-				if( (Offset >= 0x1F800200) && (Offset <= 0x1F8003FF) )
-				{
-					u32 roffset = Offset - 0x1F800200;
-					#ifdef DEBUG_GCAM
-					dbgprintf("GC-AM: Write MEDIA BOARD NETWORK COMMAND (%08x)\n", roffset );
-					#endif
-					memcpy( NetworkCMDBuffer + roffset, (void*)Buffer, Length );
-				}
-				// Max GC disc offset
-				if( Offset >= 0x57058000 )
-				{
-					dbgprintf("Unhandled Media Board Write\n");
-					dbgprintf("GCAM:Write( 0x%08x, 0x%08x, 0x%08x )\n", Offset, Length, Buffer|0x80000000 );
-					Shutdown();
-				}
-				DIOK = 2;
-			} break;
 			case 0xAB:
 			{
-				if(TRIGame)
-				{
-					memset32( MediaBuffer, 0, 0x20 );
-
-					MediaBuffer[0] = MediaBuffer[0x20];
-
-					// Command
-					*(u16*)(MediaBuffer+2) = *(u16*)(MediaBuffer+0x22) | 0x80;
-
-					u16 cmd = bswap16(*(u16*)(MediaBuffer+0x22));
-
-					#ifdef DEBUG_GCAM
-					if(cmd)
-						dbgprintf("GCAM:Execute command:%03X\n", cmd );
-					#endif
-					switch( cmd )
-					{
-						// ?
-						case 0x000:
-							*(u32*)(MediaBuffer+4) = bswap32(1);
-							break;
-						// DIMM size
-						case 0x001:
-							*(u32*)(MediaBuffer+4) = bswap32(0x20000000);
-							break;
-						// Media board status
-						case 0x100:
-							// Status
-							*(u32*)(MediaBuffer+4) = bswap32(5);
-							// Progress in %
-							*(u32*)(MediaBuffer+8) = bswap32(100);
-						break;
-						// Media board version: 13.05
-						case 0x101:
-							// Version
-							*(u16*)(MediaBuffer+4) = bswap16(0x1305);
-							// Unknown
-							*(u16*)(MediaBuffer+6) = 0x01;
-							*(u32*)(MediaBuffer+8) = 1;
-							*(u32*)(MediaBuffer+16)= 0xFFFFFFFF;
-						break;
-						// System flags
-						case 0x102:
-							// 1: GD-ROM
-							MediaBuffer[4] = 1;
-							MediaBuffer[5] = 0;
-							// enable development mode (Sega Boot)
-							MediaBuffer[6] = 1;
-						break;
-						// Media board serial
-						case 0x103:
-							memcpy( MediaBuffer + 4, "A89E28A48984511", 16 );
-						break;
-						case 0x104:
-							MediaBuffer[4] = 1;
-						break;
-						// Get IP (?)
-						case 0x406:
-						{
-							char *IP			= (char*)(NetworkCMDBuffer + ( bswap32(*(u32*)(MediaBuffer+0x28)) - 0x1F800200 ) );
-							u32 IPLength	= bswap32(*(u32*)(MediaBuffer+0x2C));
-
-							memcpy( MediaBuffer + 4, IP, IPLength );
-
-							#ifdef DEBUG_GCAM
-							dbgprintf( "GC-AM: Get IP:%s\n", (char*)(MediaBuffer + 4) );
-							#endif
-						} break;
-						// Set IP
-						case 0x415:
-						{
-							#ifdef DEBUG_GCAM
-							char *IP			= (char*)(NetworkCMDBuffer + ( bswap32(*(u32*)(MediaBuffer+0x28)) - 0x1F800200 ) );
-							u32 IPLength	= bswap32(*(u32*)(MediaBuffer+0x2C));
-							dbgprintf( "GC-AM: Set IP:%s, Length:%d\n", IP, IPLength );
-							#endif
-						} break;
-						default:
-						{
-							//dbgprintf("GC-AM: Unknown DIMM Command\n");
-							//hexdump( MediaBuffer + 0x20, 0x20 );
-						} break;
-					}
-					memset32( MediaBuffer + 0x20, 0, 0x20 );
-					write32( DI_IMM, 0x66556677 );
-				}
-				else if(FSTMode == 0 && RealDiscCMD == 0)
+				if(FSTMode == 0 && RealDiscCMD == 0)
 				{
 					u32 Offset = read32(DI_CMD_1) << 2;
 					//dbgprintf("DIP:DVDLowSeek( 0x%08X )\r\n", Offset);
@@ -741,41 +440,21 @@ void DIUpdateRegisters( void )
 				u32 Length	= read32(DI_CMD_2);
 				u32 Offset	= read32(DI_CMD_1) << 2;
 
-				/* Part of SegaBoot Init */
-				if(TRIGame == TRI_SB && Offset == 0x420)
-				{
-					//dbgprintf("DIP:Switching to actual Triforce game\r\n");
-					useipltri = 0; //happens after the "setup", read actual disc
-				}
-
 				dbgprintf( "DIP:DVDReadA8( 0x%08x, 0x%08x, 0x%08x )\r\n", Offset, Length, Buffer|0x80000000 );
 
-				if( TRIGame && Offset >= 0x1F000000 )
+				// Max GC disc offset
+				if( Offset >= 0x57058000 )
 				{
-					TRIReadMediaBoard( Buffer, Offset, Length );
-					DIOK = 2;
+					dbgprintf("Unhandled Read\n");
+					dbgprintf("DIP:DVDRead%02X( 0x%08x, 0x%08x, 0x%08x )\n", DIcommand, Offset, Length, Buffer|0x80000000 );
+					Shutdown();
 				}
-				else
+				if( Buffer < 0x01800000 )
 				{
-					// Max GC disc offset
-					if( Offset >= 0x57058000 )
-					{
-						dbgprintf("Unhandled Read\n");
-						dbgprintf("DIP:DVDRead%02X( 0x%08x, 0x%08x, 0x%08x )\n", DIcommand, Offset, Length, Buffer|0x80000000 );
-						Shutdown();
-					}
-					if( Buffer < 0x01800000 )
-					{
-						if( useipltri )
-							ReadSegaBoot(Buffer, Offset, Length);
-						else
-						{
-							DiscReadAsync(Buffer, Offset, Length, 0);
-							ReadSpeed_Start();
-						}
-					}
-					DIOK = 2;
+					DiscReadAsync(Buffer, Offset, Length, 0);
+					ReadSpeed_Start();
 				}
+				DIOK = 2;
 			} break;
 			case 0xF8:
 			{
@@ -787,18 +466,12 @@ void DIUpdateRegisters( void )
 
 				if( Buffer < 0x01800000 )
 				{
-					if( useipltri )
-						ReadSegaBoot(Buffer, Offset, Length);
-					else
-						DiscReadSync(Buffer, Offset, Length, 0);
+					DiscReadSync(Buffer, Offset, Length, 0);
 				}
 				DIOK = 1;
 			} break;
 			case 0xF9:
 			{
-				#ifdef PATCHALL
-				BTInit();
-				#endif
 				DIOK = 1;
 			} break;
 		}
@@ -918,7 +591,6 @@ void DIFinishAsync()
 	{
 		udelay(200); //wait for driver
 		CheckOSReport();
-		BTUpdateRegisters();
 	}
 }
 /*

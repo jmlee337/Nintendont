@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Loader) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Loader) - Playing Gamecubes in Wii mode
 
 Copyright (C) 2013  crediar
 
@@ -67,7 +67,6 @@ extern const u32 DiscFormatColors[8];
 
 void SetShutdown(void);
 void HandleSTMEvent(u32 event);
-void HandleWiiMoteEvent(s32 chan);
 
 /**
  * Select the source device and game.

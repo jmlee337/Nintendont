@@ -1,6 +1,6 @@
 /*
 
-Nintendont (Loader) - Playing Gamecubes in Wii mode on a Wii U
+Nintendont (Loader) - Playing Gamecubes in Wii mode
 MD5 database handler.
 
 Copyright (C) 2013  crediar

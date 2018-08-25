@@ -19,21 +19,11 @@
 #include "asm/ARStartDMA_TC.h"
 #include "asm/ARStartDMA_Hook.h"
 #include "asm/__ARHandler.h"
-#include "asm/SITransfer.h"
-#include "asm/SIGetType.h"
 #include "asm/FakeInterrupt.h"
 #include "asm/FakeInterrupt_DBG.h"
 #include "asm/FakeInterrupt_Datel.h"
 #include "asm/__DVDInterruptHandler.h"
 #include "asm/TCIntrruptHandler.h"
-#include "asm/SIIntrruptHandler.h"
-#include "asm/SIInitStore.h"
-#include "asm/PADRead.h"
-#include "asm/PADControlAllMotors.h"
-#include "asm/PADControlMotor.h"
-#include "asm/PADIsBarrel.h"
-#include "asm/DVDSendCMDEncrypted.h"
-#include "asm/GCAMSendCommand.h"
 #include "asm/patch_fwrite_Log.h"
 #include "asm/patch_fwrite_GC.h"
 #include "asm/FakeRSWLoad.h"
@@ -138,16 +128,5 @@ const u32 DVDLowReadAudioNULL[10] = {
         0x4E800020      //  blr
 };
 #endif
-
-//function header is good enough to verify
-static const u32 PADIsBarrelOri[] = {
-		0x2C030000,		// cmpwi	r3,0
-		0x4180000C,		// blt		0x10
-		0x2C030004,		// cmpwi	r3,4
-		0x4180000C,		// blt		0x18
-		0x38600000,		// li		r3,0
-		0x4E800020,		// blr
-		0x3C008000		// lis		r0,0x8000
-};
 
 #endif
