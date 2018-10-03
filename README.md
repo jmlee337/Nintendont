@@ -1,3 +1,5 @@
+Download `NintendontForMelee.zip` from the [latest release](https://github.com/jmlee337/Nintendont/releases/latest)
+
 ### Nintendont for Melee
 See the [README](https://github.com/FIX94/Nintendont/blob/master/README.md) for standard Nintendont. It's just like that except:
 * Native Control is locked to 'on'.
@@ -11,7 +13,7 @@ See the [README](https://github.com/FIX94/Nintendont/blob/master/README.md) for 
 ### Kadano's Wii softmodding guide
 I recommend using [Kadano's guide](https://docs.google.com/document/d/1iaPI7Mb5fCzsLLLuEeQuR9-BeR8AOwvHyU-FM8GKmEs) if you're new to all this. Many guides in the wild are out of date or weren't very good to begin with.
 
-### Installation Summary:
+### Installation Summary
 1. Download `NintendontForMelee.zip` from the [latest release](https://github.com/jmlee337/Nintendont/releases/latest). Unzip to the root of your SD card such that `boot.dol`, `meta.xml`, and `icon.png` all end up under `/apps/NintendontForMelee`.
 2. Copy your vanilla Melee ISO (as well as any special versions like [Training Mode](https://www.patreon.com/UnclePunch)) to `/games/`.
 3. Combine with [Priiloader](http://wiibrew.org/wiki/Priiloader) and [Nintendont Forwarder for Priiloader](https://github.com/jmlee337/Nintendont/loader/loader.dol) to autoboot from power-on to Nintendont.
