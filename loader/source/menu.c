@@ -1248,7 +1248,7 @@ static bool UpdateSettingsMenu(MenuCtx *ctx)
 				case 4:
 					ctx->saveSettings = true;
 					ncfg->MeleeCodes++;
-					if (ncfg->MeleeCodes > 2)
+					if (ncfg->MeleeCodes > 3)
 					{
 						ncfg->MeleeCodes = 0;
 					}
