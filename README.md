@@ -5,8 +5,8 @@ See the [README](https://github.com/FIX94/Nintendont/blob/master/README.md) for 
 * Native Control is locked to 'on'.
 * It has codesets built-in, turn them on from the settings menu! (Can't guarantee compatibility with non-vanilla Melee ISOs or while using custom codesets through the 'Cheats' setting)
   * [OSReport](https://twitter.com/UnclePunch_/status/1017607009104023552): show error information if melee crashes. Take a photo and include it with your bug report!
-  * [UCF 0.73](http://www.20xx.me/ucf.html): allow all controllers to dashback and shield drop equally. Includes OSReport and convenience codes like 'unlock everything', 'boot to css', etc.
-  * [Arduino 1.01](https://twitter.com/ssbmhax/status/1046108551570214913): matches the hardware adapter solution to be used at tournaments where UCF cannot be used. Includes OSReport and convenience codes like 'unlock everything', 'boot to css', etc. WORKS ONLY WITH NTSC 1.02
+  * [UCF](http://www.20xx.me/ucf.html) ([0.73 Beta](http://www.20xx.me/ucf-changelog.html)): allow all controllers to dashback and shield drop equally. Includes OSReport and convenience codes like 'unlock everything', 'boot to css', etc.
+  * [Arduino](https://twitter.com/ssbmhax/status/1046108551570214913) ([Canada Cup 2018](https://twitter.com/ssbmhax/status/1054825446691557376)): matches the hardware adapter solution to be used at tournaments where UCF cannot be used. Includes OSReport and convenience codes like 'unlock everything', 'boot to css', etc. WORKS ONLY WITH NTSC 1.02
   * All built-in codesets can be viewed in [PatchMeleeCodes.h](kernel/PatchMeleeCodes.h).
 
 
