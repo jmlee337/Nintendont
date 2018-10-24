@@ -60,7 +60,7 @@ const char* MeleeCodesStrings[] =
 	"Codes Off",
 	"OSReport",
 	"UCF 0.73",
-	"Arduino 1.01",
+	"Arduino CC18",
 };
 
 #endif

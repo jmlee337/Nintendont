@@ -944,17 +944,19 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 			case 4: {
 				// Melee Codes
 				static const char *desc_melee_codes[] = {
-					"Enable certain codesets for",
-					"Super Smash Bros. Melee.",
+					"Enable codesets for Super Smash",
+					"Bros. Melee",
 					"",
-					"OSReport: Print error info if",
-					"Melee crashes. You can take a",
-					"photo of the info and include",
-					"it with your bug report!",
+					"OSReport: Show error info if",
+					"the game crashes.",
 					"",
-					"UCF 0.73 (+ OSReport): Allow",
-					"controllers to dash back and",
-					"shield drop equally.",
+					"UCF 0.73: Allow controllers to",
+					"dash back and shield drop",
+					"equally.",
+					"",
+					"Arduino CC18: Simulate the",
+					"arduino adapter alternative to",
+					"UCF.",
 					NULL
 				};
 				return desc_melee_codes;
