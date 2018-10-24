@@ -956,7 +956,7 @@ static const char *const *GetSettingsDescription(const MenuCtx *ctx)
 					"",
 					"Arduino CC18: Simulate the",
 					"arduino adapter alternative to",
-					"UCF.",
+					"UCF. ONLY AFFECTS NTSC 1.02.",
 					NULL
 				};
 				return desc_melee_codes;
