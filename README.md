@@ -1,6 +1,13 @@
-Download `NintendontForMelee.zip` from the [latest release](https://github.com/jmlee337/Nintendont/releases/latest)
+# Use Nintendont Slippi!
+[Nintendont Slippi](https://github.com/project-slippi/Nintendont/tree/slippi) integrates my improvements as well as the replay functionality of [Project Slippi](https://github.com/project-slippi/project-slippi).
 
-### Nintendont for Melee
+I won't be making any more updates to this Nintendont variant, so please use Nintendont Slippi unless you need a specific feature of Nintendont for Melee.
+The only one I know of at the moment is if you want to use the built-in codesets with a PAL ISO.
+Nintendont Slippi doesn't support this (yet).
+
+### Nintendont for Melee \[deprecated\]
+Download `NintendontForMelee.zip` from the [latest release](https://github.com/jmlee337/Nintendont/releases/latest).
+
 See the [README](https://github.com/FIX94/Nintendont/blob/master/README.md) for standard Nintendont. It's just like that except:
 * Native Control is locked to 'on'.
 * It has codesets built-in, turn them on from the settings menu! (Can't guarantee compatibility with non-vanilla Melee ISOs or while using custom codesets through the 'Cheats' setting)
