@@ -197,7 +197,7 @@ int _main( int argc, char *argv[] )
 	// Boot up USB if it is being used for writing slp files OR booting a game
 	if (shouldBootUsb)
 	{
-		ret = USBStorage_Startup();
+		ret = USBStorage_Startup(SlippiFileWrite);
 		dbgprintf("USB:Drive size: %dMB SectorSize:%d\r\n", s_cnt / 1024 * s_size / 1024, s_size);
 		if(ret != 1)
 		{
@@ -582,7 +582,9 @@ int _main( int argc, char *argv[] )
 		GCAMUpdateRegisters();
 		BTUpdateRegisters();
 		HIDUpdateRegisters(0);
-		USBStorageUpdateRegisters();
+
+		if (SlippiFileWrite)
+			USBStorageUpdateRegisters();
 
 		// Native SI is always enabled in Slippi Nintendont
 		//if (DisableSIPatch == 0) SIUpdateRegisters();
