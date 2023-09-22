@@ -91,6 +91,9 @@
 
 #define USB_MAX_DEVICES					32
 
+#define USBV5_IOCTL_GETDEVICECHANGE		1
+#define USBV5_IOCTL_ATTACHFINISH		6
+
 typedef struct _usb_device_entry {
 	s32 device_id;
 	u16 vid;

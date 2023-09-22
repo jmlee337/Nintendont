@@ -582,6 +582,7 @@ int _main( int argc, char *argv[] )
 		GCAMUpdateRegisters();
 		BTUpdateRegisters();
 		HIDUpdateRegisters(0);
+		USBStorageUpdateRegisters();
 
 		// Native SI is always enabled in Slippi Nintendont
 		//if (DisableSIPatch == 0) SIUpdateRegisters();

@@ -31,4 +31,6 @@ bool USBStorage_ReadSectors(u32 sector, u32 numSectors, void *buffer);
 bool USBStorage_WriteSectors(u32 sector, u32 numSectors, const void *buffer);
 void USBStorage_Shutdown(void);
 
+void USBStorageUpdateRegisters(void);
+
 #endif /* __USBSTORAGE_H__ */

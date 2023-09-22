@@ -98,6 +98,16 @@ static s32 __usb_fd = -1;
 static u8 *cbw_buffer = NULL;
 static u8 *transferbuffer = NULL;
 
+static s32 ven_fd = -1;
+static usb_device_entry AttachedDevices[32] ALIGNED(32);
+
+static struct ipcmessage *venchangemsg = NULL;
+static u32 venchange_thread = 0;
+static u8 *venchangeheap = NULL;
+static s32 venchangequeue = -1;
+static vu32 venchange = 0;
+extern char __ven_change_stack_addr, __ven_change_stack_size;
+
 static s32 __usbstorage_reset();
 
 static s32 __send_cbw(u8 lun, u32 len, u8 flags, const u8 *cb, u8 cbLen)
@@ -258,18 +268,40 @@ void USBStorage_Open()
 	__mounted = true;
 }
 
+static u32 __ven_change_thread()
+{
+	struct ipcmessage *msg = NULL;
+	while(1)
+	{
+		mqueue_recv(venchangequeue, &msg, 0);
+		mqueue_ack(msg, 0);
+		venchange = 1;
+	}
+	return 0;
+}
+
 bool USBStorage_Startup(void)
 {
 	if(__inited)
 		return true;
 
-	if(USB_Initialize() < 0)
+	ven_fd = USB_Initialize();
+	if(ven_fd < 0)
 		return false;
 
 	if(cbw_buffer == NULL)
 		cbw_buffer = (u8*)malloca(32,32);
 
 	USBStorage_Open();
+
+	venchangeheap = (u8*)malloca(32,32);
+	venchangequeue = mqueue_create(venchangeheap, 1);
+	venchangemsg = (struct ipcmessage*)malloca(sizeof(struct ipcmessage), 32);
+	venchange_thread = do_thread_create(__ven_change_thread, ((u32*)&__ven_change_stack_addr), ((u32)(&__ven_change_stack_size)), 0x78);
+	thread_continue(venchange_thread);
+
+	memset32(AttachedDevices, 0, sizeof(usb_device_entry)*32);
+	IOS_IoctlAsync(ven_fd, USBV5_IOCTL_GETDEVICECHANGE, NULL, 0, AttachedDevices, 0x180, venchangequeue, venchangemsg);
 
 	__inited = true;
 	return __inited;
@@ -360,4 +392,14 @@ void USBStorage_Shutdown(void)
 		cbw_buffer = NULL;
 	}
 	__inited = false;
+}
+
+void USBStorageUpdateRegisters(void)
+{
+	if (venchange == 1)
+	{
+		IOS_Ioctl(ven_fd, USBV5_IOCTL_ATTACHFINISH, NULL, 0, NULL, 0);
+		venchange = 0;
+		IOS_IoctlAsync(ven_fd, USBV5_IOCTL_GETDEVICECHANGE, NULL, 0, AttachedDevices, 0x180, venchangequeue, venchangemsg);
+	}
 }
