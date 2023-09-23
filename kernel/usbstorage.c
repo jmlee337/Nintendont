@@ -469,7 +469,57 @@ static u32 __find_next_endpoint(u8 *buffer,s32 size,u8 align)
 	return (buffer - ptr);
 }
 
-bool _discover_new_device()
+static bool __getLun(important_storage_data *dev, int max_lun)
+{
+	s32 retval;
+	int lun;
+	for (lun = 0; lun < max_lun; lun++)
+	{
+		// __usbstorage_clearerrors
+		u8 test_cmd[] = {SCSI_TEST_UNIT_READY, 0, 0, 0, 0, 0};
+		retval = __cycle(dev, lun, NULL, 0, test_cmd, sizeof(test_cmd), 0, NULL, NULL);
+		if (retval < 0)
+			continue;
+
+		u8 sense_cmd[] = {SCSI_REQUEST_SENSE, lun << 5, 0, 0, SCSI_SENSE_REPLY_SIZE, 0};
+		u8 sense_response[SCSI_SENSE_REPLY_SIZE];
+		memset(sense_response, 0, SCSI_SENSE_REPLY_SIZE);
+		retval = __cycle(dev, lun, sense_response, sizeof(sense_response), sense_cmd, sizeof(sense_cmd), 0, NULL, NULL);
+		if (retval < 0)
+			continue;
+		u8 sense_key = sense_response[2] & 0xF;
+		if (sense_key == SCSI_SENSE_NOT_READY || sense_key == SCSI_SENSE_MEDIUM_ERROR || sense_key == SCSI_SENSE_HARDWARE_ERROR)
+			continue;
+
+		// USBStorage_Inquiry
+		u8 inquiry_cmd[] = {SCSI_INQUIRY, lun << 5,0,0,36,0};
+		u8 inquiry_response[36];
+		int j;
+		for (j = 0; j < 2; j++)
+		{
+			memset(inquiry_response, 0, 36);
+			retval = __cycle(dev, lun, inquiry_response, sizeof(inquiry_response), inquiry_cmd, sizeof(inquiry_cmd), 0, NULL, NULL);
+			if (retval >= 0) break;
+		}
+
+		//USBStorage_ReadCapacity
+		u8 read_capacity_cmd[10] = {SCSI_READ_CAPACITY, lun << 5, 0, 0, 0, 0, 0, 0, 0, 0};
+		u32 read_capacity_response[2];
+		memset(read_capacity_response, 0, 8);
+		retval = __cycle(dev, lun, (u8*)read_capacity_response, sizeof(read_capacity_response), read_capacity_cmd, sizeof(read_capacity_cmd), 0, NULL, NULL);
+
+		if (retval >= 0 && read_capacity_response[0] > 0 && read_capacity_response[1] >= 512)
+		{
+			dev->sector_count = read_capacity_response[0];
+			dev->sector_size = read_capacity_response[1];
+			dev->lun = lun;
+			return true;
+		}				
+	}
+	return false;
+}
+
+bool __discover_new_device()
 {
 	int i;
 	u32 num_attached_devices = venchangemsg->result;
@@ -507,125 +557,81 @@ bool _discover_new_device()
 		if (AttachedDevices[i].vid == 0x0b95 && AttachedDevices[i].pid == 0x7720)
 			continue;
 
-		// USBStorage_Open
-			// USB_OpenDevice
-				// USB_ResumeDevice
-					// USBV5_SuspendResume
-						suspend_resume_buf[0] = AttachedDevices[i].device_id;
-						suspend_resume_buf[2] = 1;
-						IOS_Ioctl(ven_fd, USBV5_IOCTL_SUSPEND_RESUME, suspend_resume_buf, 32, NULL, 0);
-			// USB_GetDescriptors
-				// USB5_GetDescriptors
-					get_dev_params_in[0] = AttachedDevices[i].device_id;
-					get_dev_params_in[2] = 0;
-					memset(get_dev_params_out, 0, GETDEVPARAMS_OUT_SIZE);
-					s32 retval = IOS_Ioctl(ven_fd, USBV5_IOCTL_GETDEVPARAMS, get_dev_params_in, 32, get_dev_params_out, GETDEVPARAMS_OUT_SIZE);
-					if (retval == IPC_OK)
-					{
-						u8 *next = get_dev_params_out + GETDEVPARAMS_DESC_OFFSET;
-						udd = (usb_devdesc*)next;
-						next += (udd->bLength+3)&~3;
+		// USBV5_SuspendResume
+		suspend_resume_buf[0] = AttachedDevices[i].device_id;
+		suspend_resume_buf[2] = 1;
+		IOS_Ioctl(ven_fd, USBV5_IOCTL_SUSPEND_RESUME, suspend_resume_buf, 32, NULL, 0);
 
-						ucd = (usb_configurationdesc*)next;
-						next += (ucd->bLength+3)&~3;
-						if (ucd->bNumInterfaces == 0)
-							continue;
-
-						uid = (usb_interfacedesc*)next;
-						next += (uid->bLength+3)&~3;
-						if (uid->bInterfaceClass == USB_CLASS_MASS_STORAGE && uid->bInterfaceProtocol == MASS_STORAGE_BULK_ONLY && uid->bNumEndpoints >= 2)
-						{
-							u16 extra_size = __find_next_endpoint(next, get_dev_params_out + GETDEVPARAMS_OUT_SIZE - next, 3);
-							if (extra_size > 0)
-								next += extra_size;
-
-							u8 endpoint_in = 0;
-							u8 endpoint_out = 0;
-							int iEndpoint;
-							for (iEndpoint = 0; iEndpoint < uid->bNumEndpoints; iEndpoint++)
-							{
-								ued = (usb_endpointdesc*)next;
-								next += (ued->bLength+3)&~3;
-								if (ued->bmAttributes != USB_ENDPOINT_BULK)
-									continue;
-
-								if (ued->bEndpointAddress & USB_ENDPOINT_IN)
-									endpoint_in = ued->bEndpointAddress;
-								else
-									endpoint_out = ued->bEndpointAddress;
-							}
-
-							if (endpoint_in != 0 && endpoint_out != 0)
-							{
-								u8 max_lun = 0;
-								important_storage_data new_device;
-								new_device.vid = AttachedDevices[i].vid;
-								new_device.pid = AttachedDevices[i].pid;
-								new_device.tag = TAG_START;
-								new_device.interface = uid->bInterfaceNumber;
-								new_device.usb_fd = AttachedDevices[i].device_id;
-								new_device.ep_in = endpoint_in;
-								new_device.ep_out = endpoint_out;
-
-								retval = 
-									USB_WriteCtrlMsg(
-										new_device.usb_fd,
-										(USB_CTRLTYPE_DIR_DEVICE2HOST | USB_CTRLTYPE_TYPE_CLASS | USB_CTRLTYPE_REC_INTERFACE),
-										USBSTORAGE_GET_MAX_LUN,
-										0,
-										new_device.interface,
-										1,
-										&max_lun);
-								max_lun = retval < 0 ? 1 : max_lun + 1;
-		int lun;
-		for (lun = 0; lun < max_lun; lun++)
+		// USB5_GetDescriptors
+		get_dev_params_in[0] = AttachedDevices[i].device_id;
+		get_dev_params_in[2] = 0;
+		memset(get_dev_params_out, 0, GETDEVPARAMS_OUT_SIZE);
+		s32 retval = IOS_Ioctl(ven_fd, USBV5_IOCTL_GETDEVPARAMS, get_dev_params_in, 32, get_dev_params_out, GETDEVPARAMS_OUT_SIZE);
+		if (retval == IPC_OK)
 		{
-			// USBStorage_MountLUN
-				// __usbstorage_clearerrors
-					u8 test_cmd[] = {SCSI_TEST_UNIT_READY, 0, 0, 0, 0, 0};
-					retval = __cycle(&new_device, lun, NULL, 0, test_cmd, sizeof(test_cmd), 0, NULL, NULL);
-					if (retval < 0)
-						continue;
+			u8 *next = get_dev_params_out + GETDEVPARAMS_DESC_OFFSET;
+			udd = (usb_devdesc*)next;
+			next += (udd->bLength+3)&~3;
 
-					u8 sense_cmd[] = {SCSI_REQUEST_SENSE, lun << 5, 0, 0, SCSI_SENSE_REPLY_SIZE, 0};
-					u8 sense_response[SCSI_SENSE_REPLY_SIZE];
-					memset(sense_response, 0, SCSI_SENSE_REPLY_SIZE);
-					retval = __cycle(&new_device, lun, sense_response, sizeof(sense_response), sense_cmd, sizeof(sense_cmd), 0, NULL, NULL);
-					if (retval < 0)
-						continue;
-					u8 sense_key = sense_response[2] & 0xF;
-					if (sense_key == SCSI_SENSE_NOT_READY || sense_key == SCSI_SENSE_MEDIUM_ERROR || sense_key == SCSI_SENSE_HARDWARE_ERROR)
-						continue;
+			ucd = (usb_configurationdesc*)next;
+			next += (ucd->bLength+3)&~3;
+			if (ucd->bNumInterfaces == 0)
+				continue;
 
-				// USBStorage_Inquiry
-					u8 inquiry_cmd[] = {SCSI_INQUIRY, lun << 5,0,0,36,0};
-					u8 inquiry_response[36];
-					int j;
-					for (j = 0; j < 2; j++)
-					{
-						memset(inquiry_response, 0, 36);
-						retval = __cycle(&new_device, lun, inquiry_response, sizeof(inquiry_response), inquiry_cmd, sizeof(inquiry_cmd), 0, NULL, NULL);
-						if (retval >= 0) break;
-					}
-
-				//USBStorage_ReadCapacity
-					u8 read_capacity_cmd[10] = {SCSI_READ_CAPACITY, lun << 5, 0, 0, 0, 0, 0, 0, 0, 0};
-					u32 read_capacity_response[2];
-					memset(read_capacity_response, 0, 8);
-					retval = __cycle(&new_device, lun, (u8*)read_capacity_response, sizeof(read_capacity_response), read_capacity_cmd, sizeof(read_capacity_cmd), 0, NULL, NULL);
-
-			if (retval >= 0 && read_capacity_response[0] > 0 && read_capacity_response[1] >= 512)
+			uid = (usb_interfacedesc*)next;
+			next += (uid->bLength+3)&~3;
+			if (uid->bInterfaceClass == USB_CLASS_MASS_STORAGE && uid->bInterfaceProtocol == MASS_STORAGE_BULK_ONLY && uid->bNumEndpoints >= 2)
 			{
-				new_device.sector_count = read_capacity_response[0];
-				new_device.sector_size = read_capacity_response[1];
-				new_device.lun = lun;
-				memcpy(&__mounted_device, &new_device, sizeof(important_storage_data));
-				return true;
-			}				
-		}
-							}
-						}
+				u16 extra_size = __find_next_endpoint(next, get_dev_params_out + GETDEVPARAMS_OUT_SIZE - next, 3);
+				if (extra_size > 0)
+					next += extra_size;
+
+				u8 endpoint_in = 0;
+				u8 endpoint_out = 0;
+				int iEndpoint;
+				for (iEndpoint = 0; iEndpoint < uid->bNumEndpoints; iEndpoint++)
+				{
+					ued = (usb_endpointdesc*)next;
+					next += (ued->bLength+3)&~3;
+					if (ued->bmAttributes != USB_ENDPOINT_BULK)
+						continue;
+
+					if (ued->bEndpointAddress & USB_ENDPOINT_IN)
+						endpoint_in = ued->bEndpointAddress;
+					else
+						endpoint_out = ued->bEndpointAddress;
+				}
+
+				if (endpoint_in != 0 && endpoint_out != 0)
+				{
+					u8 max_lun = 0;
+					important_storage_data new_device;
+					new_device.vid = AttachedDevices[i].vid;
+					new_device.pid = AttachedDevices[i].pid;
+					new_device.tag = TAG_START;
+					new_device.interface = uid->bInterfaceNumber;
+					new_device.usb_fd = AttachedDevices[i].device_id;
+					new_device.ep_in = endpoint_in;
+					new_device.ep_out = endpoint_out;
+
+					retval = 
+						USB_WriteCtrlMsg(
+							new_device.usb_fd,
+							(USB_CTRLTYPE_DIR_DEVICE2HOST | USB_CTRLTYPE_TYPE_CLASS | USB_CTRLTYPE_REC_INTERFACE),
+							USBSTORAGE_GET_MAX_LUN,
+							0,
+							new_device.interface,
+							1,
+							&max_lun);
+					max_lun = retval < 0 ? 1 : max_lun + 1;
+					if (__getLun(&new_device, max_lun))
+					{
+						memcpy(&__mounted_device, &new_device, sizeof(important_storage_data));
+						return true;
 					}
+				}
+			}
+		}
 	}
 	return false;
 }
@@ -636,7 +642,7 @@ void USBStorageUpdateRegisters(void)
 	{
 		IOS_Ioctl(ven_fd, USBV5_IOCTL_ATTACHFINISH, NULL, 0, NULL, 0);
 		venchange = 0;
-		_discover_new_device();
+		__discover_new_device();
 		IOS_IoctlAsync(ven_fd, USBV5_IOCTL_GETDEVICECHANGE, NULL, 0, AttachedDevices, 0x180, venchangequeue, venchangemsg);
 	}
 }
