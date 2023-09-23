@@ -584,7 +584,7 @@ int _main( int argc, char *argv[] )
 		HIDUpdateRegisters(0);
 
 		if (SlippiFileWrite)
-			USBStorageUpdateRegisters();
+			USBStorage_UpdateRegisters_MainThread();
 
 		// Native SI is always enabled in Slippi Nintendont
 		//if (DisableSIPatch == 0) SIUpdateRegisters();

@@ -161,6 +161,7 @@ typedef struct
 extern u32 s_size, s_cnt;
 
 static bool __inited = false;
+static bool __mounted = false;
 static important_storage_data __mounted_device;
 
 static u8 *cbw_buffer = NULL;
@@ -173,8 +174,11 @@ static struct ipcmessage *venchangemsg = NULL;
 static u32 venchange_thread = 0;
 static u8 *venchangeheap = NULL;
 static s32 venchangequeue = -1;
-static vu32 venchange = 0;
 extern char __ven_change_stack_addr, __ven_change_stack_size;
+
+static bool __ioctl_running = false;
+static bool __main_thread_dirty = false;
+static bool __slippi_thread_dirty = false;
 
 static s32 __usbstorage_reset(important_storage_data *dev);
 
@@ -322,6 +326,8 @@ void USBStorage_Open()
 	__mounted_device.ep_in = d->ep_in;
 	__mounted_device.ep_out = d->ep_out;
 
+	__mounted = true;
+
 	if(transferbuffer == NULL)
 		transferbuffer = (u8*)malloca(MAX_TRANSFER_SIZE_V5, 32);
 }
@@ -333,7 +339,9 @@ static u32 __ven_change_thread()
 	{
 		mqueue_recv(venchangequeue, &msg, 0);
 		mqueue_ack(msg, 0);
-		venchange = 1;
+		__ioctl_running = false;
+		__main_thread_dirty = true;
+		__slippi_thread_dirty = true;
 	}
 	return 0;
 }
@@ -354,14 +362,12 @@ bool USBStorage_Startup(bool hotswap)
 
 	if (hotswap)
 	{
+		memset32(AttachedDevices, 0, sizeof(usb_device_entry)*32);
 		venchangeheap = (u8*)malloca(32,32);
 		venchangequeue = mqueue_create(venchangeheap, 1);
 		venchangemsg = (struct ipcmessage*)malloca(sizeof(struct ipcmessage), 32);
 		venchange_thread = do_thread_create(__ven_change_thread, ((u32*)&__ven_change_stack_addr), ((u32)(&__ven_change_stack_size)), 0x78);
 		thread_continue(venchange_thread);
-
-		memset32(AttachedDevices, 0, sizeof(usb_device_entry)*32);
-		IOS_IoctlAsync(ven_fd, USBV5_IOCTL_GETDEVICECHANGE, NULL, 0, AttachedDevices, 0x180, venchangequeue, venchangemsg);
 	}
 
 	__inited = true;
@@ -370,7 +376,7 @@ bool USBStorage_Startup(bool hotswap)
 
 bool USBStorage_ReadSectors(u32 sector, u32 numSectors, void *buffer)
 {
-	if (__mounted_device.usb_fd == -1)
+	if (!__mounted)
 		return false;
 
 	u8 status = 0;
@@ -397,7 +403,7 @@ bool USBStorage_ReadSectors(u32 sector, u32 numSectors, void *buffer)
 
 bool USBStorage_WriteSectors(u32 sector, u32 numSectors, const void *buffer)
 {
-	if (__mounted_device.usb_fd == -1)
+	if (!__mounted)
 		return false;
 
 	u8 status = 0;
@@ -433,7 +439,7 @@ void USBStorage_Close()
 		free(transferbuffer);
 		transferbuffer = NULL;
 	}
-	__mounted_device.usb_fd = -1;
+	__mounted = false;
 }
 
 void USBStorage_Shutdown(void)
@@ -519,27 +525,27 @@ static bool __getLun(important_storage_data *dev, int max_lun)
 	return false;
 }
 
-bool __discover_new_device()
+bool __has_device_after_change()
 {
 	int i;
 	u32 num_attached_devices = venchangemsg->result;
 
 	if (num_attached_devices == 0)
 	{
-		__mounted_device.usb_fd = -1;
+		__mounted = false;
 		return false;
 	}
 
 	// If already have a device, return if it's still present
-	if (__mounted_device.usb_fd != -1)
+	if (__mounted)
 	{
 		for (i = 0; i < num_attached_devices; i++)
 		{
 			if (AttachedDevices[i].device_id == __mounted_device.usb_fd) {
-				return false;
+				return true;
 			}
 		}
-		__mounted_device.usb_fd = -1;
+		__mounted = false;
 	}
 
 	s32 suspend_resume_buf[8] ALIGNED(32);
@@ -553,7 +559,7 @@ bool __discover_new_device()
 	usb_endpointdesc *ued = NULL;
 	for (i = 0; i < num_attached_devices; i++)
 	{
-		// USB LAN
+		// known device USB LAN
 		if (AttachedDevices[i].vid == 0x0b95 && AttachedDevices[i].pid == 0x7720)
 			continue;
 
@@ -627,6 +633,21 @@ bool __discover_new_device()
 					if (__getLun(&new_device, max_lun))
 					{
 						memcpy(&__mounted_device, &new_device, sizeof(important_storage_data));
+
+						/*
+						dbgprintf(
+							"USBStorage: s_count: %d, s_size: %d, lun: %d, ep_out: %d, ep_in: %d, interface: %d, fd: 0x%04X, vid: 0x%02X, pid: 0x%02X\n",
+							__mounted_device.sector_count,
+							__mounted_device.sector_size,
+							__mounted_device.lun,
+							__mounted_device.ep_out,
+							__mounted_device.ep_in,
+							__mounted_device.interface,
+							__mounted_device.usb_fd,
+							__mounted_device.vid,
+							__mounted_device.pid);
+						*/
+
 						return true;
 					}
 				}
@@ -636,13 +657,34 @@ bool __discover_new_device()
 	return false;
 }
 
-void USBStorageUpdateRegisters(void)
+// Call periodically from only the main thread
+void USBStorage_UpdateRegisters_MainThread(void)
 {
-	if (venchange == 1)
+	if (__main_thread_dirty)
 	{
 		IOS_Ioctl(ven_fd, USBV5_IOCTL_ATTACHFINISH, NULL, 0, NULL, 0);
-		venchange = 0;
-		__discover_new_device();
-		IOS_IoctlAsync(ven_fd, USBV5_IOCTL_GETDEVICECHANGE, NULL, 0, AttachedDevices, 0x180, venchangequeue, venchangemsg);
+		__main_thread_dirty = false;
 	}
+
+	if (!__main_thread_dirty && !__slippi_thread_dirty && !__ioctl_running)
+	{
+		IOS_IoctlAsync(ven_fd, USBV5_IOCTL_GETDEVICECHANGE, NULL, 0, AttachedDevices, 0x180, venchangequeue, venchangemsg);
+		__ioctl_running = true;
+	}
+}
+
+// Call periodically from only the slippi thread
+bool USBStorage_IsInserted_SlippiThread(void)
+{
+	if (__slippi_thread_dirty)
+	{
+		bool retval = __has_device_after_change();
+
+		// if (!retval) dbgprintf("USBStorage: device removed\n");
+
+		__slippi_thread_dirty = false;
+		return retval;
+	}
+
+	return __mounted;
 }
