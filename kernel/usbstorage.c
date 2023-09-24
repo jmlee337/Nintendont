@@ -481,6 +481,8 @@ static bool __getLun(important_storage_data *dev, int max_lun)
 	int lun;
 	for (lun = 0; lun < max_lun; lun++)
 	{
+		udelay(50);
+
 		// __usbstorage_clearerrors
 		u8 test_cmd[] = {SCSI_TEST_UNIT_READY, 0, 0, 0, 0, 0};
 		retval = __cycle(dev, lun, NULL, 0, test_cmd, sizeof(test_cmd), 0, NULL, NULL);
@@ -542,6 +544,7 @@ bool __has_device_after_change()
 		for (i = 0; i < num_attached_devices; i++)
 		{
 			if (AttachedDevices[i].device_id == __mounted_device.usb_fd) {
+				udelay(50);
 				return true;
 			}
 		}
@@ -562,6 +565,8 @@ bool __has_device_after_change()
 		// known device USB LAN
 		if (AttachedDevices[i].vid == 0x0b95 && AttachedDevices[i].pid == 0x7720)
 			continue;
+
+		// dbgprintf("USBStorage: fd: %d, vid: 0x%04X, pid: 0x%04X\n", AttachedDevices[i].device_id, AttachedDevices[i].vid, AttachedDevices[i].pid);
 
 		// USBV5_SuspendResume
 		suspend_resume_buf[0] = AttachedDevices[i].device_id;
@@ -586,6 +591,8 @@ bool __has_device_after_change()
 
 			uid = (usb_interfacedesc*)next;
 			next += (uid->bLength+3)&~3;
+
+			// dbgprintf("USBStorage: bInterfaceClass: 0x%02X, bInterfaceProtocol: 0x%02X, bNumEndpoints: %d\n", uid->bInterfaceClass, uid->bInterfaceProtocol, uid->bNumEndpoints);
 			if (uid->bInterfaceClass == USB_CLASS_MASS_STORAGE && uid->bInterfaceProtocol == MASS_STORAGE_BULK_ONLY && uid->bNumEndpoints >= 2)
 			{
 				u16 extra_size = __find_next_endpoint(next, get_dev_params_out + GETDEVPARAMS_OUT_SIZE - next, 3);
@@ -610,7 +617,6 @@ bool __has_device_after_change()
 
 				if (endpoint_in != 0 && endpoint_out != 0)
 				{
-					u8 max_lun = 0;
 					important_storage_data new_device;
 					new_device.vid = AttachedDevices[i].vid;
 					new_device.pid = AttachedDevices[i].pid;
@@ -623,12 +629,25 @@ bool __has_device_after_change()
 					retval = 
 						USB_WriteCtrlMsg(
 							new_device.usb_fd,
+							(USB_CTRLTYPE_DIR_HOST2DEVICE | USB_CTRLTYPE_TYPE_STANDARD | USB_CTRLTYPE_REC_DEVICE),
+							USB_REQ_SETCONFIG,
+							ucd->bConfigurationValue,
+							0,
+							0,
+							NULL);
+
+					u8 max_lun;
+					retval = 
+						USB_ReadCtrlMsg(
+							new_device.usb_fd,
 							(USB_CTRLTYPE_DIR_DEVICE2HOST | USB_CTRLTYPE_TYPE_CLASS | USB_CTRLTYPE_REC_INTERFACE),
 							USBSTORAGE_GET_MAX_LUN,
 							0,
 							new_device.interface,
 							1,
 							&max_lun);
+					// dbgprintf("USBStorage: GET_MAX_LUN: ret: %d, max_lun: %d\n", retval, max_lun);
+
 					max_lun = retval < 0 ? 1 : max_lun + 1;
 					if (__getLun(&new_device, max_lun))
 					{
@@ -636,7 +655,7 @@ bool __has_device_after_change()
 
 						/*
 						dbgprintf(
-							"USBStorage: s_count: %d, s_size: %d, lun: %d, ep_out: %d, ep_in: %d, interface: %d, fd: 0x%04X, vid: 0x%02X, pid: 0x%02X\n",
+							"USBStorage: sector_count: %d, sector_size: %d, lun: %d, ep_out: 0x%02X, ep_in: 0x%02X, interface: %d\n",
 							__mounted_device.sector_count,
 							__mounted_device.sector_size,
 							__mounted_device.lun,
@@ -648,6 +667,7 @@ bool __has_device_after_change()
 							__mounted_device.pid);
 						*/
 
+						udelay(10000);
 						return true;
 					}
 				}

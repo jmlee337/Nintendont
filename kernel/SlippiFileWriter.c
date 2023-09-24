@@ -7,6 +7,7 @@
 #include "net.h"
 
 #include "Config.h"
+#include "usbstorage.h"
 
 // Game can transfer at most 784 bytes / frame
 // That means 4704 bytes every 100 ms. Let's aim to handle
@@ -177,6 +178,11 @@ static u32 SlippiHandlerThread(void *arg)
 
 	u32 writtenByteCount = 0;
 	driveTimer = read32(HW_TIMER);
+
+	/*
+	bool mounted = true;
+	FATFS device;
+	*/
 	while (1)
 	{
 		// Cycle time, look at const definition for more info
@@ -187,6 +193,18 @@ static u32 SlippiHandlerThread(void *arg)
 		}
 
 		// TODO: Ensure connection to USB is correct
+		/*
+		if (!USBStorage_IsInserted_SlippiThread())
+		{
+			mounted = false;
+		}
+		else if (!mounted)
+		{
+			mounted = true;
+			FRESULT fresult = f_mount_char(&device, "usb:", 1);
+			dbgprintf("Slippi: f_mount_char fresult: %d\n", fresult);
+		}
+		*/
 
 		// Read from memory and write to file
 		SlpMemError err = SlippiMemoryRead(&reader, readBuf, READ_BUF_SIZE, memReadPos);
