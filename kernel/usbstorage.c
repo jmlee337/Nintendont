@@ -646,12 +646,12 @@ bool __has_device_after_change()
 							new_device.interface,
 							1,
 							&max_lun);
-					// dbgprintf("USBStorage: GET_MAX_LUN: ret: %d, max_lun: %d\n", retval, max_lun);
 
 					max_lun = retval < 0 ? 1 : max_lun + 1;
 					if (__getLun(&new_device, max_lun))
 					{
 						memcpy(&__mounted_device, &new_device, sizeof(important_storage_data));
+						__mounted = true;
 
 						/*
 						dbgprintf(
@@ -700,7 +700,7 @@ bool USBStorage_IsInserted_SlippiThread(void)
 	{
 		bool retval = __has_device_after_change();
 
-		// if (!retval) dbgprintf("USBStorage: device removed\n");
+		// if (!retval) dbgprintf("USBStorage: device removed, fd: %d\n", __mounted_device.usb_fd);
 
 		__slippi_thread_dirty = false;
 		return retval;
