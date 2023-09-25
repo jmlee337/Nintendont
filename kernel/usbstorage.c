@@ -293,15 +293,8 @@ static s32 __cycle(important_storage_data *dev, u8 lun, u8 *buffer, u32 len, u8 
 
 static s32 __usbstorage_reset(important_storage_data *dev)
 {
-	s32 retval = 
-		USB_WriteCtrlMsg(
-			dev->usb_fd,
-			(USB_CTRLTYPE_DIR_HOST2DEVICE | USB_CTRLTYPE_TYPE_CLASS | USB_CTRLTYPE_REC_INTERFACE),
-			USBSTORAGE_RESET,
-			0,
-			dev->interface,
-			0,
-			NULL);
+	u8 bmRequestType = USB_CTRLTYPE_DIR_HOST2DEVICE | USB_CTRLTYPE_TYPE_CLASS | USB_CTRLTYPE_REC_INTERFACE;
+	s32 retval = USB_WriteCtrlMsg(dev->usb_fd, bmRequestType, USBSTORAGE_RESET, 0, dev->interface, 0, NULL);
 
 	udelay(60*1000);
 	USB_ClearHalt(dev->usb_fd, dev->ep_in);udelay(10000); //from http://www.usb.org/developers/devclass_docs/usbmassbulk_10.pdf
@@ -475,46 +468,48 @@ static u32 __find_next_endpoint(u8 *buffer,s32 size,u8 align)
 	return (buffer - ptr);
 }
 
-static bool __getLun(important_storage_data *dev, int max_lun)
+static bool __setValidLun(important_storage_data *dev, int max_lun)
 {
 	s32 retval;
 	int lun;
-	for (lun = 0; lun < max_lun; lun++)
+
+	// max_lun is the maximum LUN index, not the number of LUNs
+	for (lun = 0; lun <= max_lun; lun++)
 	{
 		udelay(50);
 
-		// __usbstorage_clearerrors
+		// see libogc/usbstorage.c: __usbstorage_clearerrors
 		u8 test_cmd[] = {SCSI_TEST_UNIT_READY, 0, 0, 0, 0, 0};
-		retval = __cycle(dev, lun, NULL, 0, test_cmd, sizeof(test_cmd), 0, NULL, NULL);
+		retval = __cycle(dev, lun, NULL, 0, test_cmd, 6, 0, NULL, NULL);
 		if (retval < 0)
 			continue;
 
 		u8 sense_cmd[] = {SCSI_REQUEST_SENSE, lun << 5, 0, 0, SCSI_SENSE_REPLY_SIZE, 0};
 		u8 sense_response[SCSI_SENSE_REPLY_SIZE];
 		memset(sense_response, 0, SCSI_SENSE_REPLY_SIZE);
-		retval = __cycle(dev, lun, sense_response, sizeof(sense_response), sense_cmd, sizeof(sense_cmd), 0, NULL, NULL);
+		retval = __cycle(dev, lun, sense_response, SCSI_SENSE_REPLY_SIZE, sense_cmd, 6, 0, NULL, NULL);
 		if (retval < 0)
 			continue;
 		u8 sense_key = sense_response[2] & 0xF;
 		if (sense_key == SCSI_SENSE_NOT_READY || sense_key == SCSI_SENSE_MEDIUM_ERROR || sense_key == SCSI_SENSE_HARDWARE_ERROR)
 			continue;
 
-		// USBStorage_Inquiry
+		// see libogc/usbstorage.c: USBStorage_Inquiry
 		u8 inquiry_cmd[] = {SCSI_INQUIRY, lun << 5,0,0,36,0};
 		u8 inquiry_response[36];
 		int j;
 		for (j = 0; j < 2; j++)
 		{
 			memset(inquiry_response, 0, 36);
-			retval = __cycle(dev, lun, inquiry_response, sizeof(inquiry_response), inquiry_cmd, sizeof(inquiry_cmd), 0, NULL, NULL);
+			retval = __cycle(dev, lun, inquiry_response, 36, inquiry_cmd, 6, 0, NULL, NULL);
 			if (retval >= 0) break;
 		}
 
-		//USBStorage_ReadCapacity
+		// see libogc/usbstorage.c: USBStorage_ReadCapacity
 		u8 read_capacity_cmd[10] = {SCSI_READ_CAPACITY, lun << 5, 0, 0, 0, 0, 0, 0, 0, 0};
 		u32 read_capacity_response[2];
 		memset(read_capacity_response, 0, 8);
-		retval = __cycle(dev, lun, (u8*)read_capacity_response, sizeof(read_capacity_response), read_capacity_cmd, sizeof(read_capacity_cmd), 0, NULL, NULL);
+		retval = __cycle(dev, lun, (u8*)read_capacity_response, 8, read_capacity_cmd, 10, 0, NULL, NULL);
 
 		if (retval >= 0 && read_capacity_response[0] > 0 && read_capacity_response[1] >= 512)
 		{
@@ -568,12 +563,12 @@ bool __has_device_after_change()
 
 		// dbgprintf("USBStorage: fd: %d, vid: 0x%04X, pid: 0x%04X\n", AttachedDevices[i].device_id, AttachedDevices[i].vid, AttachedDevices[i].pid);
 
-		// USBV5_SuspendResume
+		// see libogc/usb.c: USBV5_SuspendResume
 		suspend_resume_buf[0] = AttachedDevices[i].device_id;
 		suspend_resume_buf[2] = 1;
 		IOS_Ioctl(ven_fd, USBV5_IOCTL_SUSPEND_RESUME, suspend_resume_buf, 32, NULL, 0);
 
-		// USB5_GetDescriptors
+		// see libogc/usb.c: USBV5_GetDescriptors
 		get_dev_params_in[0] = AttachedDevices[i].device_id;
 		get_dev_params_in[2] = 0;
 		memset(get_dev_params_out, 0, GETDEVPARAMS_OUT_SIZE);
@@ -584,11 +579,16 @@ bool __has_device_after_change()
 			udd = (usb_devdesc*)next;
 			next += (udd->bLength+3)&~3;
 
+			// "very few devices have more than 1 configuration" - https://www.beyondlogic.org/usbnutshell/usb5.shtml
+			// also, GETDEVPARAMS_OUT_SIZE 0xC0 is sized exactly for 1 configuration with 1 interface with up to 16 endpoints
+			// so assume only one configuration
 			ucd = (usb_configurationdesc*)next;
 			next += (ucd->bLength+3)&~3;
 			if (ucd->bNumInterfaces == 0)
 				continue;
 
+			// "IOS presents each interface as a different device" - libogc/usb.c
+			// so assume only one interface
 			uid = (usb_interfacedesc*)next;
 			next += (uid->bLength+3)&~3;
 
@@ -626,29 +626,15 @@ bool __has_device_after_change()
 					new_device.ep_in = endpoint_in;
 					new_device.ep_out = endpoint_out;
 
-					retval = 
-						USB_WriteCtrlMsg(
-							new_device.usb_fd,
-							(USB_CTRLTYPE_DIR_HOST2DEVICE | USB_CTRLTYPE_TYPE_STANDARD | USB_CTRLTYPE_REC_DEVICE),
-							USB_REQ_SETCONFIG,
-							ucd->bConfigurationValue,
-							0,
-							0,
-							NULL);
+					// Even though (we assume) the device has only one configuration, we need to explicitly select it. TODO
+					u8 bmRequestType = USB_CTRLTYPE_DIR_HOST2DEVICE | USB_CTRLTYPE_TYPE_STANDARD | USB_CTRLTYPE_REC_DEVICE;
+					retval = USB_WriteCtrlMsg(new_device.usb_fd, bmRequestType, USB_REQ_SETCONFIG, ucd->bConfigurationValue, 0, 0, NULL);
 
-					u8 max_lun;
-					retval = 
-						USB_ReadCtrlMsg(
-							new_device.usb_fd,
-							(USB_CTRLTYPE_DIR_DEVICE2HOST | USB_CTRLTYPE_TYPE_CLASS | USB_CTRLTYPE_REC_INTERFACE),
-							USBSTORAGE_GET_MAX_LUN,
-							0,
-							new_device.interface,
-							1,
-							&max_lun);
-
-					max_lun = retval < 0 ? 1 : max_lun + 1;
-					if (__getLun(&new_device, max_lun))
+					bmRequestType = USB_CTRLTYPE_DIR_DEVICE2HOST | USB_CTRLTYPE_TYPE_CLASS | USB_CTRLTYPE_REC_INTERFACE;
+					u8 max_lun = 0;
+					retval = USB_ReadCtrlMsg(new_device.usb_fd, bmRequestType, USBSTORAGE_GET_MAX_LUN, 0, new_device.interface, 1, &max_lun);
+					dbgprintf("USBStorage: GET_MAX_LUN: retval: %d, max_lun: %d\n", retval, max_lun);
+					if (__setValidLun(&new_device, max_lun))
 					{
 						memcpy(&__mounted_device, &new_device, sizeof(important_storage_data));
 						__mounted = true;
