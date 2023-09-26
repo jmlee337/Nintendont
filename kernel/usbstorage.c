@@ -333,8 +333,10 @@ static u32 __ven_change_thread()
 		mqueue_recv(venchangequeue, &msg, 0);
 		mqueue_ack(msg, 0);
 		__ioctl_running = false;
-		__main_thread_dirty = true;
+
+		// order actually matters here for thread safety
 		__slippi_thread_dirty = true;
+		__main_thread_dirty = true;
 	}
 	return 0;
 }
