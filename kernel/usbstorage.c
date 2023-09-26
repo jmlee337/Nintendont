@@ -633,7 +633,6 @@ bool __has_device_after_change()
 					bmRequestType = USB_CTRLTYPE_DIR_DEVICE2HOST | USB_CTRLTYPE_TYPE_CLASS | USB_CTRLTYPE_REC_INTERFACE;
 					u8 max_lun = 0;
 					retval = USB_ReadCtrlMsg(new_device.usb_fd, bmRequestType, USBSTORAGE_GET_MAX_LUN, 0, new_device.interface, 1, &max_lun);
-					dbgprintf("USBStorage: GET_MAX_LUN: retval: %d, max_lun: %d\n", retval, max_lun);
 					if (__setValidLun(&new_device, max_lun))
 					{
 						memcpy(&__mounted_device, &new_device, sizeof(important_storage_data));

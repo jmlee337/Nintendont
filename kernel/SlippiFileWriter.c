@@ -179,10 +179,11 @@ static u32 SlippiHandlerThread(void *arg)
 	u32 writtenByteCount = 0;
 	driveTimer = read32(HW_TIMER);
 
-	/*
-	bool mounted = true;
 	FATFS device;
-	*/
+	bool failedToMount = false;
+	bool hasFile = false;
+	bool mounted = true;
+	const bool use_usb = ConfigGetUseUSB() != 1;
 	while (1)
 	{
 		// Cycle time, look at const definition for more info
@@ -192,19 +193,43 @@ static u32 SlippiHandlerThread(void *arg)
 			clear32(HW_GPIO_OUT, GPIO_SLOT_LED);
 		}
 
-		// TODO: Ensure connection to USB is correct
-		/*
-		if (!USBStorage_IsInserted_SlippiThread())
+		if (use_usb)
 		{
-			mounted = false;
+			if (!USBStorage_IsInserted_SlippiThread())
+			{
+				if (mounted)
+				{
+					f_mount_char(NULL, "usb:", 1);
+
+					failedToMount = false;
+					hasFile = false;
+					mounted = false;
+				}
+				continue;
+			}
+			else if (!mounted && !failedToMount)
+			{
+				if (f_mount_char(&device, "usb:", 1) == FR_OK)
+				{
+					// ignore anything already in the buffer. users should not expect to record a
+					// game if the usb device is inserted after game start.
+					memReadPos = SlippiRestoreReadPos();
+
+					mounted = true;
+
+					// flash drive LED on successful insertion.
+					set32(HW_GPIO_OUT, GPIO_SLOT_LED);
+					driveTimer = read32(HW_TIMER);
+				}
+				else
+				{
+					// only attempt to mount once, user can retry by re-inserting the device.
+					failedToMount = true;
+				}
+			}
+			if (!mounted)
+				continue;
 		}
-		else if (!mounted)
-		{
-			mounted = true;
-			FRESULT fresult = f_mount_char(&device, "usb:", 1);
-			dbgprintf("Slippi: f_mount_char fresult: %d\n", fresult);
-		}
-		*/
 
 		// Read from memory and write to file
 		SlpMemError err = SlippiMemoryRead(&reader, readBuf, READ_BUF_SIZE, memReadPos);
@@ -236,7 +261,7 @@ static u32 SlippiHandlerThread(void *arg)
 				continue;
 			}
 
-			// dbgprintf("Bytes written: %d/%d...\r\n", wrote, currentBuffer->len);
+			hasFile = true;
 			writtenByteCount = 0;
 			writeHeader(&currentFile);
 		}
@@ -245,6 +270,14 @@ static u32 SlippiHandlerThread(void *arg)
 			continue;
 
 		// dbgprintf("Bytes read: %d\r\n", reader.lastReadResult.bytesRead);
+
+		if (!hasFile)
+		{
+			// we can reach this state if the user inserts a usb device during a game.
+			// skip over and don't write anything until we see the start of a new game
+			memReadPos += reader.lastReadResult.bytesRead;
+			continue;
+		}
 
 		UINT wrote;
 		f_write(&currentFile, readBuf, reader.lastReadResult.bytesRead, &wrote);
@@ -262,6 +295,7 @@ static u32 SlippiHandlerThread(void *arg)
 			dbgprintf("Completing File...\r\n");
 			completeFile(&currentFile, &reader, writtenByteCount);
 			f_close(&currentFile);
+			hasFile = false;
 		}
 	}
 
