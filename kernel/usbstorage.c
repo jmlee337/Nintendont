@@ -453,6 +453,7 @@ void USBStorage_Shutdown(void)
 	__inited = false;
 }
 
+// see libogc/usb.c: __find_next_endpoint
 static u32 __find_next_endpoint(u8 *buffer,s32 size,u8 align)
 {
 	u8 *ptr = buffer;
@@ -522,6 +523,7 @@ static bool __setValidLun(important_storage_data *dev, int max_lun)
 	return false;
 }
 
+// see libogc/usbstorage.c: __usbstorage_IsInserted
 bool __has_device_after_change()
 {
 	int i;
@@ -626,7 +628,7 @@ bool __has_device_after_change()
 					new_device.ep_in = endpoint_in;
 					new_device.ep_out = endpoint_out;
 
-					// Even though (we assume) the device has only one configuration, we need to explicitly select it. TODO
+					// Even though (we assume) the device has only one configuration, we need to explicitly select it.
 					u8 bmRequestType = USB_CTRLTYPE_DIR_HOST2DEVICE | USB_CTRLTYPE_TYPE_STANDARD | USB_CTRLTYPE_REC_DEVICE;
 					retval = USB_WriteCtrlMsg(new_device.usb_fd, bmRequestType, USB_REQ_SETCONFIG, ucd->bConfigurationValue, 0, 0, NULL);
 
@@ -646,10 +648,7 @@ bool __has_device_after_change()
 							__mounted_device.lun,
 							__mounted_device.ep_out,
 							__mounted_device.ep_in,
-							__mounted_device.interface,
-							__mounted_device.usb_fd,
-							__mounted_device.vid,
-							__mounted_device.pid);
+							__mounted_device.interface);
 						*/
 
 						udelay(10000);
