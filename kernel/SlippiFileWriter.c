@@ -252,7 +252,7 @@ static u32 SlippiHandlerThread(void *arg)
 
 			dbgprintf("Creating File...\r\n");
 			char *fileName = generateFileName(true);
-			// Need to open with FA_READ if network thread is going to share &currentFile
+			// Maybe can remove FA_READ since network thread doesn't share &currentFile
 			FRESULT fileOpenResult = f_open_secondary_drive(&currentFile, fileName, FA_CREATE_ALWAYS | FA_WRITE | FA_READ);
 			if (fileOpenResult != FR_OK)
 			{
