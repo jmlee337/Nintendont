@@ -198,13 +198,11 @@ static u32 SlippiHandlerThread(void *arg)
 			if (!USBStorage_IsInserted_SlippiThread())
 			{
 				if (mounted)
-				{
 					f_mount_char(NULL, "usb:", 1);
 
-					failedToMount = false;
-					hasFile = false;
-					mounted = false;
-				}
+				failedToMount = false;
+				hasFile = false;
+				mounted = false;
 				continue;
 			}
 			else if (!mounted && !failedToMount)
