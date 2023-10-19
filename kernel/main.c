@@ -241,7 +241,7 @@ int _main( int argc, char *argv[] )
 		res = f_mount( devices[0], fatSdName, 1 );
 		if( res != FR_OK )
 		{
-			dbgprintf("ES:f_mount() failed:%d\r\n", res );
+			dbgprintf("SD ES:f_mount() failed:%d\r\n", res );
 			BootStatusError(-3, res);
 			mdelay(4000);
 			Shutdown();
@@ -255,7 +255,7 @@ int _main( int argc, char *argv[] )
 		res = f_mount( devices[1], fatUsbName, 1 );
 		if( res != FR_OK )
 		{
-			dbgprintf("ES:f_mount() failed:%d\r\n", res );
+			dbgprintf("USB ES:f_mount() failed:%d\r\n", res );
 			BootStatusError(-3, res);
 			mdelay(4000);
 			Shutdown();
