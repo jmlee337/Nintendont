@@ -307,9 +307,8 @@ void USBStorage_Open()
 	sync_before_read((void*)0x132C1000, sizeof(important_storage_data));
 	important_storage_data *d = (important_storage_data*)0x132C1000;
 
-	usb_s_size = d->sector_size;
-	usb_s_cnt = d->sector_count;
-
+	__mounted_device.sector_size = d->sector_size;
+	__mounted_device.sector_count = d->sector_count;
 	__mounted_device.lun = d->lun;
 	__mounted_device.vid = d->vid;
 	__mounted_device.pid = d->pid;
@@ -318,6 +317,9 @@ void USBStorage_Open()
 	__mounted_device.usb_fd = d->usb_fd;
 	__mounted_device.ep_in = d->ep_in;
 	__mounted_device.ep_out = d->ep_out;
+
+	usb_s_size = __mounted_device.sector_size;
+	usb_s_cnt = __mounted_device.sector_count;
 
 	__mounted = true;
 
