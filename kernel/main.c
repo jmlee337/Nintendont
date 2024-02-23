@@ -189,7 +189,7 @@ int _main( int argc, char *argv[] )
  */
 	BootStatus(STORAGE_INIT, 0, 0);
 
-	u32 SlippiFileWrite = ConfigGetConfig(NIN_CFG_SLIPPI_FILE_WRITE);
+	u32 SlippiFileWrite = ConfigGetConfig(NIN_CFG_SLIPPI_REPLAYS);
 	u32 UseUSB = ConfigGetUseUSB(); // Returns 0 for SD, 1 for USB
 	SetDiskFunctions(UseUSB);
 
