@@ -35,13 +35,21 @@ u32 gameStartTime;
 // timer for drive led
 u32 driveTimer;
 
+// replays LED setting, 0: always on, 1: flash on insert and file end, 2: do not use
+u32 replaysLED;
+
 void SlippiFileWriterInit()
 {
-	// Move to a more appropriate place later
-	// Enables Drive LED
-	set32(HW_GPIO_ENABLE, GPIO_SLOT_LED);
-	clear32(HW_GPIO_DIR, GPIO_SLOT_LED);
-	clear32(HW_GPIO_OWNER, GPIO_SLOT_LED);
+	replaysLED = ConfigGetReplaysLED();
+	if (replaysLED < 2)
+	{
+		// Move to a more appropriate place later
+		// Enables Drive LED
+		set32(HW_GPIO_ENABLE, GPIO_SLOT_LED);
+		clear32(HW_GPIO_DIR, GPIO_SLOT_LED);
+		clear32(HW_GPIO_OWNER, GPIO_SLOT_LED);
+	}
+
 	Slippi_Thread = do_thread_create(
 		SlippiHandlerThread,
 		((u32 *)&__slippi_stack_addr),
@@ -162,7 +170,7 @@ void completeFile(FIL *file, SlpGameReader *reader, u32 writtenByteCount)
 	f_lseek(file, 11);
 	f_write(file, &writtenByteCount, 4, &wrote);
 	res = f_sync(file);
-	if (res == 0) {
+	if (replaysLED == 1 && res == 0) {
 		set32(HW_GPIO_OUT, GPIO_SLOT_LED);
 		driveTimer = read32(HW_TIMER);
 	}
@@ -184,12 +192,15 @@ static u32 SlippiHandlerThread(void *arg)
 	bool hasFile = false;
 	bool mounted = true;
 	const bool use_usb = ConfigGetUseUSB() != 1;
+	if (replaysLED == 0)
+		set32(HW_GPIO_OUT, GPIO_SLOT_LED);
+
 	while (1)
 	{
 		// Cycle time, look at const definition for more info
 		mdelay(THREAD_CYCLE_TIME_MS);
 
-		if (TimerDiffMs(driveTimer) > 1000) {
+		if (replaysLED == 1 && TimerDiffMs(driveTimer) > 1000) {
 			clear32(HW_GPIO_OUT, GPIO_SLOT_LED);
 		}
 
@@ -198,7 +209,11 @@ static u32 SlippiHandlerThread(void *arg)
 			if (!USBStorage_IsInserted_SlippiThread())
 			{
 				if (mounted)
+				{
 					f_mount_char(NULL, "usb:", 1);
+					if (replaysLED == 0)
+						clear32(HW_GPIO_OUT, GPIO_SLOT_LED);
+				}
 
 				failedToMount = false;
 				hasFile = false;
@@ -215,9 +230,12 @@ static u32 SlippiHandlerThread(void *arg)
 
 					mounted = true;
 
-					// flash drive LED on successful insertion.
-					set32(HW_GPIO_OUT, GPIO_SLOT_LED);
-					driveTimer = read32(HW_TIMER);
+					if (replaysLED < 2)
+					{
+						set32(HW_GPIO_OUT, GPIO_SLOT_LED);
+						if (replaysLED == 1)
+							driveTimer = read32(HW_TIMER); // flash drive LED on successful insertion.
+					}
 				}
 				else
 				{
