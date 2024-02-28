@@ -587,9 +587,15 @@ int _main( int argc, char *argv[] )
 		BTUpdateRegisters();
 		HIDUpdateRegisters(0);
 
-		if (SlippiFileWrite == 1 && !UseUSB)
-			// Must consistently call to enable USB hotswap
-			USBStorage_UpdateRegisters_MainThread();
+		if (SlippiFileWrite == 1)
+		{
+			SlippiFileWriterUpdateRegisters();
+			if (!UseUSB)
+			{
+				// Must consistently call to enable USB hotswap
+				USBStorage_UpdateRegisters_MainThread();
+			}
+		}
 
 		// Native SI is always enabled in Slippi Nintendont
 		//if (DisableSIPatch == 0) SIUpdateRegisters();

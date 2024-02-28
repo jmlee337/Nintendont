@@ -14,7 +14,7 @@
 // double that, making our read buffer 10000 bytes
 #define READ_BUF_SIZE 10000
 #define THREAD_CYCLE_TIME_MS 100
-#define THREAD_ERROR_TIME_MS 1000
+#define THREAD_ERROR_TIME_MS 2000
 #define LED_FLASH_TIME_MS 1000
 
 #define FOOTER_BUFFER_LENGTH 200
@@ -63,9 +63,28 @@ void SlippiFileWriterInit()
 	thread_continue(Slippi_Thread);
 }
 
+void SlippiFileWriterUpdateRegisters()
+{
+	if (driveTimerSet && TimerDiffMs(driveTimer) >= LED_FLASH_TIME_MS)
+	{
+		clear32(HW_GPIO_OUT, GPIO_SLOT_LED);
+		driveTimerSet = false;
+	}
+}
+
 void SlippiFileWriterShutdown()
 {
 	thread_cancel(Slippi_Thread, 0);
+}
+
+void flashLED()
+{
+	driveTimer = read32(HW_TIMER);
+	if (!driveTimerSet)
+	{
+		set32(HW_GPIO_OUT, GPIO_SLOT_LED);
+		driveTimerSet = true;
+	}
 }
 
 //we cant include time.h so hardcode what we need
@@ -173,15 +192,8 @@ void completeFile(FIL *file, SlpGameReader *reader, u32 writtenByteCount)
 
 	f_lseek(file, 11);
 	FRESULT fileWriteResult = f_write(file, &writtenByteCount, 4, &wrote);
-	if ((replaysLED == 0 && fileWriteResult != FR_OK) || (replaysLED == 1 && fileWriteResult == FR_OK))
-	{
-		if (replaysLED == 0)
-			clear32(HW_GPIO_OUT, GPIO_SLOT_LED);
-		else
-			set32(HW_GPIO_OUT, GPIO_SLOT_LED);
-		driveTimer = read32(HW_TIMER);
-		driveTimerSet = true;
-	}
+	if (replaysLED == 1 && fileWriteResult == FR_OK)
+		flashLED();
 	f_sync(file);
 }
 
@@ -202,8 +214,6 @@ static u32 SlippiHandlerThread(void *arg)
 	bool hasFile = false;
 	bool mounted = true;
 	const bool use_usb = ConfigGetUseUSB() != 1;
-	if (replaysLED == 0)
-		set32(HW_GPIO_OUT, GPIO_SLOT_LED);
 
 	while (1)
 	{
@@ -215,11 +225,7 @@ static u32 SlippiHandlerThread(void *arg)
 			if (!USBStorage_IsInserted_SlippiThread())
 			{
 				if (mounted)
-				{
 					f_mount_char(NULL, "usb:", 1);
-					if (replaysLED == 0)
-						clear32(HW_GPIO_OUT, GPIO_SLOT_LED);
-				}
 
 				failedToMount = false;
 				hasFile = false;
@@ -236,15 +242,8 @@ static u32 SlippiHandlerThread(void *arg)
 
 					mounted = true;
 
-					if (replaysLED < 2)
-					{
-						set32(HW_GPIO_OUT, GPIO_SLOT_LED);
-						if (replaysLED == 1)
-						{
-							driveTimer = read32(HW_TIMER); // flash drive LED on successful insertion.
-							driveTimerSet = true;
-						}
-					}
+					if (replaysLED == 1)
+						flashLED();
 				}
 				else
 				{
@@ -256,32 +255,14 @@ static u32 SlippiHandlerThread(void *arg)
 				continue;
 		}
 
-		if (driveTimerSet && TimerDiffMs(driveTimer) >= LED_FLASH_TIME_MS)
-		{
-			if (mounted && replaysLED == 0)
-				set32(HW_GPIO_OUT, GPIO_SLOT_LED);
-			else if (replaysLED == 1)
-				clear32(HW_GPIO_OUT, GPIO_SLOT_LED);
-
-			driveTimerSet = false;
-		}
-
 		// Read from memory and write to file
 		SlpMemError err = SlippiMemoryRead(&reader, readBuf, READ_BUF_SIZE, memReadPos);
 		if (err)
 		{
 			if (err == SLP_READ_OVERFLOW)
-			{
 				memReadPos = SlippiRestoreReadPos();
-				if (replaysLED == 0)
-				{
-					clear32(HW_GPIO_OUT, GPIO_SLOT_LED);
-					driveTimer = read32(HW_TIMER); // flash LED off because this means a replay has been lost/corrupted.
-					driveTimerSet = true;
-				}
-			}
 				
-			mdelay(THREAD_ERROR_TIME_MS);
+			mdelay(LED_FLASH_TIME_MS + 1000); // we always want LED visibly off if this happens
 			
 			// For specific errors, bytes will still be read. Not continueing to deal with those
 		}
@@ -299,16 +280,12 @@ static u32 SlippiHandlerThread(void *arg)
 			FRESULT fileOpenResult = f_open_secondary_drive(&currentFile, fileName, FA_CREATE_ALWAYS | FA_WRITE | FA_READ);
 			if (fileOpenResult != FR_OK)
 			{
-				if (replaysLED == 0)
-				{
-					clear32(HW_GPIO_OUT, GPIO_SLOT_LED);
-					driveTimer = read32(HW_TIMER); // flash LED off on fs error.
-					driveTimerSet = true;
-				}
 				dbgprintf("Slippi: failed to open file: %s, errno: %d\r\n", fileName, fileOpenResult);
-				mdelay(THREAD_ERROR_TIME_MS);
+				mdelay(LED_FLASH_TIME_MS - THREAD_CYCLE_TIME_MS - 100); // short enough so we can recover with running out of LED time.
 				continue;
 			}
+			else if (replaysLED == 0)
+				flashLED();
 
 			hasFile = true;
 			writtenByteCount = 0;
@@ -316,7 +293,11 @@ static u32 SlippiHandlerThread(void *arg)
 		}
 
 		if (reader.lastReadResult.bytesRead == 0)
+		{
+			if (replaysLED == 0)
+				flashLED();
 			continue;
+		}
 
 		// dbgprintf("Bytes read: %d\r\n", reader.lastReadResult.bytesRead);
 
@@ -324,18 +305,16 @@ static u32 SlippiHandlerThread(void *arg)
 		{
 			// we can reach this state if the user inserts a usb device during a game.
 			// skip over and don't write anything until we see the start of a new game
+			if (replaysLED == 0)
+				flashLED();
 			memReadPos += reader.lastReadResult.bytesRead;
 			continue;
 		}
 
 		UINT wrote;
 		FRESULT writeResult = f_write(&currentFile, readBuf, reader.lastReadResult.bytesRead, &wrote);
-		if (replaysLED == 0 && writeResult != FR_OK)
-		{
-			clear32(HW_GPIO_OUT, GPIO_SLOT_LED);
-			driveTimer = read32(HW_TIMER); // flash LED off on fs error.
-			driveTimerSet = true;
-		}
+		if (replaysLED == 0 && writeResult == FR_OK && wrote > 0)
+			flashLED();
 		f_sync(&currentFile);
 
 		if (wrote == 0)
