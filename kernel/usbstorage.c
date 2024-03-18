@@ -488,6 +488,7 @@ static bool __setValidLun(important_storage_data *dev, int max_lun)
 		retval = __cycle(dev, lun, NULL, 0, test_cmd, 6, 0, NULL, NULL);
 		if (retval < 0)
 			continue;
+		dbgprintf("USBStorage: SCSI_TEST_UNIT_READY (lun: %d)\n", lun);
 
 		u8 sense_cmd[] = {SCSI_REQUEST_SENSE, lun << 5, 0, 0, SCSI_SENSE_REPLY_SIZE, 0};
 		u8 sense_response[SCSI_SENSE_REPLY_SIZE];
@@ -496,6 +497,7 @@ static bool __setValidLun(important_storage_data *dev, int max_lun)
 		if (retval < 0)
 			continue;
 		u8 sense_key = sense_response[2] & 0xF;
+		dbgprintf("USBStorage: SCSI_REQUEST_SENSE: 0x%02X\n", sense_key);
 		if (sense_key == SCSI_SENSE_NOT_READY || sense_key == SCSI_SENSE_MEDIUM_ERROR || sense_key == SCSI_SENSE_HARDWARE_ERROR)
 			continue;
 
@@ -515,6 +517,7 @@ static bool __setValidLun(important_storage_data *dev, int max_lun)
 		u32 read_capacity_response[2];
 		memset(read_capacity_response, 0, 8);
 		retval = __cycle(dev, lun, (u8*)read_capacity_response, 8, read_capacity_cmd, 10, 0, NULL, NULL);
+		dbgprintf("USBStorage: SCSI_READ_CAPACITY: retval: %d, sector_count: %d, sector_size: %d\n", retval, read_capacity_response[0], read_capacity_response[1]);
 
 		if (retval >= 0 && read_capacity_response[0] > 0 && read_capacity_response[1] >= 512)
 		{
@@ -623,6 +626,7 @@ bool __has_device_after_change()
 
 				if (endpoint_in != 0 && endpoint_out != 0)
 				{
+					dbgprintf("USBStorage: ep_in: 0x%02X, ep_out: 0x%02X\n", endpoint_in, endpoint_out);
 					important_storage_data new_device;
 					new_device.vid = AttachedDevices[i].vid;
 					new_device.pid = AttachedDevices[i].pid;
@@ -639,6 +643,7 @@ bool __has_device_after_change()
 					bmRequestType = USB_CTRLTYPE_DIR_DEVICE2HOST | USB_CTRLTYPE_TYPE_CLASS | USB_CTRLTYPE_REC_INTERFACE;
 					u8 max_lun = 0;
 					retval = USB_ReadCtrlMsg(new_device.usb_fd, bmRequestType, USBSTORAGE_GET_MAX_LUN, 0, new_device.interface, 1, &max_lun);
+					dbgprintf("USBStorage: max_lun: %d\n", max_lun);
 					if (__setValidLun(&new_device, max_lun))
 					{
 						memcpy(&__mounted_device, &new_device, sizeof(important_storage_data));
