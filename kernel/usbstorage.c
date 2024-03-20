@@ -243,6 +243,7 @@ static s32 __cycle(important_storage_data *dev, u8 lun, u8 *buffer, u32 len, u8 
 	u32 max_size = MAX_TRANSFER_SIZE_V5;
 	u8 ep = write ? dev->ep_out : dev->ep_in;
 	s8 retries = USBSTORAGE_CYCLE_RETRIES + 1;
+	s8 retvals[USBSTORAGE_CYCLE_RETRIES + 1];
 
 	do
 	{
@@ -267,6 +268,7 @@ static s32 __cycle(important_storage_data *dev, u8 lun, u8 *buffer, u32 len, u8 
 			}
 			else
 				retval = USB_WriteBlkMsg(dev->usb_fd, ep, thisLen, _buffer);
+			retvals[3 - retries] = retval;
 			if (retval == thisLen)
 			{
 				_len -= retval;
@@ -284,6 +286,8 @@ static s32 __cycle(important_storage_data *dev, u8 lun, u8 *buffer, u32 len, u8 
 				retval = USBSTORAGE_ETIMEDOUT;
 		}
 	} while (retval < 0 && retries > 0);
+
+	if (status == NULL)	dbgprintf("USBStorage __cycle tries: %d retvals: %d, %d, %d, %d\n", 4 - retries, retvals[0], retvals[1], retvals[2], retvals[3]);
 
 	if(_status != NULL)
 		*_status = status;
